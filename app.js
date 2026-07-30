@@ -100,8 +100,12 @@ let financeChart = null;
 // Inicialização
 document.addEventListener("DOMContentLoaded", () => {
     initTheme();
-    setupEventListeners();
+    
+    // Login screen PRIMEIRO (antes de qualquer outra coisa)
     setupLoginScreen();
+    
+    // setupEventListeners pode falhar se o app-container estiver escondido
+    try { setupEventListeners(); } catch(e) { console.log("Event listeners serão configurados após login."); }
     
     // Checa se o usuário já está logado
     checkLoginState();
@@ -206,6 +210,9 @@ async function enterApp() {
     const appContainer = document.getElementById("app-container");
     if (loginScreen) loginScreen.classList.add("hidden");
     if (appContainer) appContainer.style.display = "";
+
+    // Re-configura event listeners agora que o app está visível
+    try { setupEventListeners(); } catch(e) { console.log("Aviso listeners:", e); }
 
     // Carrega dados do Supabase
     await loadDataFromCloud();
