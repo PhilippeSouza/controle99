@@ -17,6 +17,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Chart.js para Gráficos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Supabase JS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- FontAwesome para ícones -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
@@ -33,6 +35,13 @@
                 </div>
             </div>
             <div class="header-actions">
+                <div id="user-badge" class="user-badge" style="display: none;">
+                    <i class="fa-solid fa-user-circle"></i> <span id="user-email-text"></span>
+                    <button id="logout-btn" class="btn-text" title="Sair da Conta" style="margin-left: 0.5rem; color: var(--accent-red); font-size: 0.8rem;">Sair</button>
+                </div>
+                <button id="auth-btn" class="btn-primary" title="Login / Nuvem">
+                    <i class="fa-solid fa-cloud"></i> <span class="hide-mobile">Entrar / Nuvem</span>
+                </button>
                 <button id="theme-toggle" class="btn-icon" title="Alternar Tema">
                     <i class="fa-solid fa-moon"></i>
                 </button>
@@ -347,6 +356,65 @@
         </div>
     </div>
 
+    <!-- Modal de Autenticação / Login (Nuvem) -->
+    <div id="auth-modal" class="modal">
+        <div class="modal-content card" style="max-width: 420px;">
+            <h3><i class="fa-solid fa-cloud-arrow-up"></i> Entrar no controle99</h3>
+            <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem;">
+                Sincronize seus ganhos e gastos em tempo real no celular e no computador!
+            </p>
+            <div id="auth-form">
+                <div class="input-group full-width" style="margin-bottom: 0.75rem;">
+                    <label for="auth-email">Seu E-mail</label>
+                    <input type="email" id="auth-email" placeholder="seuemail@exemplo.com" required>
+                </div>
+                <div class="input-group full-width" style="margin-bottom: 1rem;">
+                    <label for="auth-password">Sua Senha</label>
+                    <input type="password" id="auth-password" placeholder="Sua senha secreta" required>
+                </div>
+                <div class="modal-actions" style="flex-direction: column; gap: 0.5rem;">
+                    <button id="submit-login-btn" class="btn-primary" style="width: 100%;">
+                        <i class="fa-solid fa-right-to-bracket"></i> Entrar na Conta
+                    </button>
+                    <button id="submit-signup-btn" class="btn-secondary" style="width: 100%;">
+                        <i class="fa-solid fa-user-plus"></i> Criar Nova Conta
+                    </button>
+                </div>
+                <div style="margin-top: 1rem; text-align: center;">
+                    <button id="open-config-btn" class="btn-text" style="font-size: 0.8rem; color: var(--text-muted);">
+                        <i class="fa-solid fa-gear"></i> Configurar Chaves do Supabase
+                    </button>
+                </div>
+            </div>
+            <div class="modal-actions" style="margin-top: 1rem;">
+                <button id="close-auth-modal-btn" class="btn-secondary">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Configuração de Chaves do Supabase -->
+    <div id="supabase-config-modal" class="modal">
+        <div class="modal-content card" style="max-width: 480px;">
+            <h3><i class="fa-solid fa-database"></i> Conectar Projeto Supabase</h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+                Insira as credenciais da API do seu projeto no Supabase (Project Settings > API):
+            </p>
+            <div class="input-group full-width" style="margin-bottom: 0.75rem;">
+                <label for="supabase-url-input">Project URL (SUPABASE_URL)</label>
+                <input type="url" id="supabase-url-input" placeholder="https://xyzcompany.supabase.co">
+            </div>
+            <div class="input-group full-width" style="margin-bottom: 1rem;">
+                <label for="supabase-key-input">API Anon Key (SUPABASE_ANON_KEY)</label>
+                <input type="text" id="supabase-key-input" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">
+            </div>
+            <div class="modal-actions">
+                <button id="close-supabase-config-modal-btn" class="btn-secondary">Cancelar</button>
+                <button id="save-supabase-config-btn" class="btn-primary">Salvar Conexão</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="supabase.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

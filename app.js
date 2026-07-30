@@ -71,7 +71,27 @@ const elements = {
     importFileModal: document.getElementById("import-file-modal"),
     importTextarea: document.getElementById("import-textarea"),
     closeImportModalBtn: document.getElementById("close-import-modal-btn"),
-    processImportBtn: document.getElementById("process-import-btn")
+    processImportBtn: document.getElementById("process-import-btn"),
+
+    // Auth & Supabase UI
+    authBtn: document.getElementById("auth-btn"),
+    userBadge: document.getElementById("user-badge"),
+    userEmailText: document.getElementById("user-email-text"),
+    logoutBtn: document.getElementById("logout-btn"),
+
+    authModal: document.getElementById("auth-modal"),
+    authEmail: document.getElementById("auth-email"),
+    authPassword: document.getElementById("auth-password"),
+    submitLoginBtn: document.getElementById("submit-login-btn"),
+    submitSignupBtn: document.getElementById("submit-signup-btn"),
+    openConfigBtn: document.getElementById("open-config-btn"),
+    closeAuthModalBtn: document.getElementById("close-auth-modal-btn"),
+
+    supabaseConfigModal: document.getElementById("supabase-config-modal"),
+    supabaseUrlInput: document.getElementById("supabase-url-input"),
+    supabaseKeyInput: document.getElementById("supabase-key-input"),
+    saveSupabaseConfigBtn: document.getElementById("save-supabase-config-btn"),
+    closeSupabaseConfigModalBtn: document.getElementById("close-supabase-config-modal-btn")
 };
 
 // Variável para instância do Gráfico
@@ -308,6 +328,122 @@ function setupEventListeners() {
             alert("Código de backup inválido. Certifique-se de ter copiado o código completo.");
         }
     });
+
+    // --- AUTENTICAÇÃO E CONEXÃO SUPABASE ---
+    if (elements.authBtn) {
+        elements.authBtn.addEventListener("click", () => {
+            elements.authModal.classList.add("show");
+        });
+
+        elements.closeAuthModalBtn.addEventListener("click", () => {
+            elements.authModal.classList.remove("show");
+        });
+
+        elements.openConfigBtn.addEventListener("click", () => {
+            elements.authModal.classList.remove("show");
+            elements.supabaseUrlInput.value = localStorage.getItem("controle99_supabase_url") || "";
+            elements.supabaseKeyInput.value = localStorage.getItem("controle99_supabase_key") || "";
+            elements.supabaseConfigModal.classList.add("show");
+        });
+
+        elements.closeSupabaseConfigModalBtn.addEventListener("click", () => {
+            elements.supabaseConfigModal.classList.remove("show");
+        });
+
+        elements.saveSupabaseConfigBtn.addEventListener("click", () => {
+            const url = elements.supabaseUrlInput.value;
+            const key = elements.supabaseKeyInput.value;
+            if (!url || !key) {
+                alert("Por favor, preencha a URL e a Anon Key do seu projeto no Supabase.");
+                return;
+            }
+            if (window.SupabaseBackend && window.SupabaseBackend.saveSupabaseConfig(url, key)) {
+                alert("✅ Conexão com o Supabase salva!");
+                elements.supabaseConfigModal.classList.remove("show");
+                checkUserSession();
+            } else {
+                alert("Erro ao validar credenciais. Verifique a URL e a Chave.");
+            }
+        });
+
+        elements.submitLoginBtn.addEventListener("click", async () => {
+            const email = elements.authEmail.value.trim();
+            const password = elements.authPassword.value.trim();
+            if (!email || !password) {
+                alert("Preencha o e-mail e a senha.");
+                return;
+            }
+            try {
+                elements.submitLoginBtn.innerText = "Entrando...";
+                await window.SupabaseBackend.signInUser(email, password);
+                elements.authModal.classList.remove("show");
+                alert("🎉 Login efetuado com sucesso!");
+                checkUserSession();
+            } catch (err) {
+                alert("Erro no login: " + (err.message || err));
+            } finally {
+                elements.submitLoginBtn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Entrar na Conta';
+            }
+        });
+
+        elements.submitSignupBtn.addEventListener("click", async () => {
+            const email = elements.authEmail.value.trim();
+            const password = elements.authPassword.value.trim();
+            if (!email || !password) {
+                alert("Preencha o e-mail e a senha.");
+                return;
+            }
+            try {
+                elements.submitSignupBtn.innerText = "Criando conta...";
+                await window.SupabaseBackend.signUpUser(email, password);
+                alert("🎉 Conta criada com sucesso!");
+                elements.authModal.classList.remove("show");
+                checkUserSession();
+            } catch (err) {
+                alert("Erro ao criar conta: " + (err.message || err));
+            } finally {
+                elements.submitSignupBtn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Criar Nova Conta';
+            }
+        });
+
+        elements.logoutBtn.addEventListener("click", async () => {
+            if (confirm("Deseja sair da sua conta?")) {
+                await window.SupabaseBackend.signOutUser();
+                alert("Você saiu da conta.");
+                checkUserSession();
+            }
+        });
+    }
+}
+
+// Checa sessão do usuário no Supabase e sincroniza dados em nuvem
+async function checkUserSession() {
+    if (!window.SupabaseBackend) return;
+    try {
+        const user = await window.SupabaseBackend.getCurrentUser();
+        if (user) {
+            elements.userBadge.style.display = "inline-flex";
+            elements.userEmailText.innerText = user.email;
+            elements.authBtn.style.display = "none";
+
+            const cloudEntries = await window.SupabaseBackend.fetchCloudEntries();
+            if (cloudEntries && cloudEntries.length > 0) {
+                appData.entries = cloudEntries;
+                saveData();
+                updateUI();
+            } else if (appData.entries && appData.entries.length > 0) {
+                if (confirm(`Sua conta na nuvem está vazia. Deseja enviar seus ${appData.entries.length} lançamentos salvos para a sua conta na nuvem agora?`)) {
+                    await window.SupabaseBackend.syncLocalEntriesToCloud(appData.entries);
+                    alert("🚀 Lançamentos resgatados foram salvos com sucesso no seu banco em nuvem!");
+                }
+            }
+        } else {
+            elements.userBadge.style.display = "none";
+            elements.authBtn.style.display = "inline-flex";
+        }
+    } catch (err) {
+        console.log("Supabase aguardando login ou chaves.", err);
+    }
 }
 
 // Auxiliar: Copia texto com fallback para iOS
@@ -424,6 +560,12 @@ function saveEntry() {
     // Ordena por data decrescente
     appData.entries.sort((a, b) => new Date(b.date) - new Date(a.date));
 
+    // Sincroniza com a nuvem (Supabase) se estiver logado
+    const targetEntry = existingIndex !== -1 ? appData.entries[existingIndex] : newEntry;
+    if (window.SupabaseBackend) {
+        window.SupabaseBackend.saveCloudEntry(targetEntry).catch(e => console.log("Offline / Sync pendente:", e));
+    }
+
     saveData();
     updateUI();
     
@@ -438,6 +580,9 @@ function deleteEntry(id) {
         appData.entries = appData.entries.filter(entry => entry.id !== id);
         saveData();
         updateUI();
+        if (window.SupabaseBackend) {
+            window.SupabaseBackend.deleteCloudEntry(id).catch(e => console.log("Offline / Sync delete pendente:", e));
+        }
     }
 }
 
