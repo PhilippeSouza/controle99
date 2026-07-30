@@ -1,9 +1,10 @@
-const CACHE_NAME = 'controle99-cache-v2';
+const CACHE_NAME = 'controle99-cache-v3';
 const assets = [
   './',
   './index.html',
   './style.css',
   './app.js',
+  './supabase.js',
   './manifest.json',
   './icon.png'
 ];

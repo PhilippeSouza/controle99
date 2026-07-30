@@ -104,6 +104,11 @@ document.addEventListener("DOMContentLoaded", () => {
     initTheme();
     updateUI();
     setupEventListeners();
+    
+    // Checa sessão do Supabase ao carregar (se já estiver logado)
+    setTimeout(() => {
+        checkUserSession();
+    }, 500);
 });
 
 // Define a data padrão do formulário como "hoje"
