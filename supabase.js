@@ -1,6 +1,5 @@
 // Configuração do Supabase Client
-// Substitua pelas suas credenciais do projeto no Supabase (Settings > API)
-let SUPABASE_URL = localStorage.getItem("controle99_supabase_url") || "";
+let SUPABASE_URL = localStorage.getItem("controle99_supabase_url") || "https://akqslhjjuesacfkqrgmi.supabase.co";
 let SUPABASE_ANON_KEY = localStorage.getItem("controle99_supabase_key") || "";
 
 let supabaseClient = null;
