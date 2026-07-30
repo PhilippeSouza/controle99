@@ -97,17 +97,13 @@ const elements = {
 // Variável para instância do Gráfico
 let financeChart = null;
 
+// Variável para controle de inicialização única de listeners
+let isEventListenersSetup = false;
+
 // Inicialização
 document.addEventListener("DOMContentLoaded", () => {
     initTheme();
-    
-    // Login screen PRIMEIRO (antes de qualquer outra coisa)
     setupLoginScreen();
-    
-    // setupEventListeners pode falhar se o app-container estiver escondido
-    try { setupEventListeners(); } catch(e) { console.log("Event listeners serão configurados após login."); }
-    
-    // Checa se o usuário já está logado
     checkLoginState();
 });
 
@@ -117,7 +113,6 @@ function setupLoginScreen() {
     const loginCreateBtn = document.getElementById("login-create-btn");
     const loginEmail = document.getElementById("login-email");
     const loginPassword = document.getElementById("login-password");
-    const loginError = document.getElementById("login-error");
 
     if (!loginEnterBtn) return;
 
@@ -157,7 +152,6 @@ function setupLoginScreen() {
             loginCreateBtn.innerText = "Criando conta...";
             loginCreateBtn.disabled = true;
             await window.SupabaseBackend.signUpUser(email, password);
-            // Tenta logar automaticamente após criar
             await window.SupabaseBackend.signInUser(email, password);
             showLoginError("");
             await enterApp();
@@ -211,14 +205,23 @@ async function enterApp() {
     if (loginScreen) loginScreen.classList.add("hidden");
     if (appContainer) appContainer.style.display = "";
 
-    // Re-configura event listeners agora que o app está visível
-    try { setupEventListeners(); } catch(e) { console.log("Aviso listeners:", e); }
+    // Configura event listeners apenas UMA vez
+    setupEventListeners();
 
-    // Carrega dados do Supabase
+    // Atualiza o badge do usuário no cabeçalho
+    try {
+        const user = await window.SupabaseBackend.getCurrentUser();
+        if (user) {
+            if (elements.userBadge) elements.userBadge.style.display = "inline-flex";
+            if (elements.userEmailText) elements.userEmailText.innerText = user.email;
+            if (elements.authBtn) elements.authBtn.style.display = "none";
+        }
+    } catch(e) {}
+
+    // Carrega os dados da conta
     await loadDataFromCloud();
     setDefaultDate();
-    updateUI();
-    checkUserSession();
+    initTheme();
 }
 
 // Carrega dados do Supabase (nuvem) prioritariamente
@@ -227,6 +230,8 @@ async function loadDataFromCloud() {
     try {
         currentUser = await window.SupabaseBackend.getCurrentUser();
     } catch(e) {}
+
+    const userEmail = currentUser && currentUser.email ? currentUser.email.toLowerCase().trim() : "";
 
     try {
         const cloudEntries = await window.SupabaseBackend.fetchCloudEntries();
@@ -240,8 +245,8 @@ async function loadDataFromCloud() {
         console.log("Erro ao buscar dados da nuvem:", err);
     }
     
-    // Apenas se a conta for a do Philippe (philippe.braga.37@gmail.com) e a nuvem estiver vazia, restaura o backup dos 21 dias
-    if (currentUser && currentUser.email === 'philippe.braga.37@gmail.com') {
+    // Apenas se a conta for a do Philippe (philippe.braga.37@gmail.com) e o banco na nuvem estiver sem lançamentos, restaura os 21 dias dos prints
+    if (userEmail === 'philippe.braga.37@gmail.com') {
         try {
             const res = await fetch('./restored_backup.json');
             const data = await res.json();
@@ -252,7 +257,7 @@ async function loadDataFromCloud() {
                 
                 // Envia os 21 lançamentos resgatados para a nuvem da conta do Philippe
                 await window.SupabaseBackend.syncLocalEntriesToCloud(data.entries);
-                console.log("21 Lançamentos restaurados salvos na conta de Philippe!");
+                console.log("21 Lançamentos restaurados salvos na conta do Philippe no Supabase!");
                 return;
             }
         } catch (e) {
@@ -260,7 +265,7 @@ async function loadDataFromCloud() {
         }
     }
 
-    // Para qualquer outra conta nova ou diferente, mantém o banco zerado
+    // Para qualquer outra conta nova ou zerada, mantém limpo com 0 lançamentos
     appData.entries = [];
     saveData();
     updateUI();
@@ -282,6 +287,9 @@ function saveData() {
 
 // Configuração de Event Listeners
 function setupEventListeners() {
+    if (isEventListenersSetup) return;
+    isEventListenersSetup = true;
+
     // Submissão do Formulário
     elements.form.addEventListener("submit", (e) => {
         e.preventDefault();
@@ -340,14 +348,10 @@ function setupEventListeners() {
         
         // Atualiza ícone
         const icon = elements.themeToggle.querySelector("i");
-        if (newTheme === "light") {
-            icon.className = "fa-solid fa-sun";
-        } else {
-            icon.className = "fa-solid fa-moon";
+        if (icon) {
+            icon.className = newTheme === "light" ? "fa-solid fa-sun" : "fa-solid fa-moon";
         }
-        
-        // Recria gráfico para ajustar cores do tema
-        renderChart();
+        updateUI();
     });
 
     // --- MODAL & LÓGICA DE BACKUP / EXPORTAR (Otimizado para iOS/iPhone e Desktop) ---

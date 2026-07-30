@@ -9,6 +9,7 @@
     --text-primary: #f1f3f9;
     --text-secondary: #94a3b8;
     --text-muted: #64748b;
+    --text-color: #f1f3f9;
     
     --accent-green: #10b981; /* Lucro/Receita */
     --accent-red: #ef4444;   /* Despesas */
@@ -25,23 +26,50 @@
 }
 
 [data-theme="light"] {
-    /* Tema Claro */
-    --bg-primary: #f8fafc;
+    /* Tema Claro HD */
+    --bg-primary: #f1f5f9;
     --bg-secondary: #ffffff;
-    --bg-card: #f1f5f9;
+    --bg-card: #ffffff;
     --text-primary: #0f172a;
     --text-secondary: #475569;
     --text-muted: #64748b;
+    --text-color: #0f172a;
     
     --accent-green: #059669;
     --accent-red: #dc2626;
     --accent-blue: #2563eb;
     --accent-yellow: #d97706;
-    --accent-brand: #eab308;
+    --accent-brand: #d97706;
     
-    --border-color: rgba(0, 0, 0, 0.08);
-    --border-focus: #eab308;
-    --card-shadow: 0 10px 20px -10px rgba(0, 0, 0, 0.08);
+    --border-color: #cbd5e1;
+    --border-focus: #d97706;
+    --card-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] input,
+[data-theme="light"] select,
+[data-theme="light"] textarea {
+    color-scheme: light;
+    background-color: #f8fafc !important;
+    border-color: #cbd5e1 !important;
+    color: #0f172a !important;
+}
+
+[data-theme="light"] .modal-content,
+[data-theme="light"] .login-card {
+    background-color: #ffffff !important;
+    border-color: #e2e8f0 !important;
+    color: #0f172a !important;
+}
+
+[data-theme="light"] table th {
+    background-color: #f8fafc !important;
+    color: #475569 !important;
+}
+
+[data-theme="light"] table td {
+    border-bottom-color: #e2e8f0 !important;
+    color: #0f172a !important;
 }
 
 /* Reset Básico */
