@@ -236,7 +236,16 @@ async function loadDataFromCloud() {
     try {
         const cloudEntries = await window.SupabaseBackend.fetchCloudEntries();
         if (cloudEntries && cloudEntries.length > 0) {
-            appData.entries = cloudEntries;
+            appData.entries = cloudEntries.map(entry => ({
+                ...entry,
+                rides: parseFloat(entry.rides) || 0,
+                tips: parseFloat(entry.tips) || 0,
+                km: parseFloat(entry.km) || 0,
+                hours: parseFloat(entry.hours) || 0,
+                fuel: parseFloat(entry.fuel) || 0,
+                food: parseFloat(entry.food) || 0,
+                others: parseFloat(entry.others) || 0
+            }));
             saveData();
             updateUI();
             return;
@@ -245,19 +254,30 @@ async function loadDataFromCloud() {
         console.log("Erro ao buscar dados da nuvem:", err);
     }
     
-    // Apenas se a conta for a do Philippe (philippe.braga.37@gmail.com) e o banco na nuvem estiver sem lançamentos, restaura os 21 dias dos prints
-    if (userEmail === 'philippe.braga.37@gmail.com') {
+    // Se a nuvem estiver vazia, restaura o backup dos 21 dias para o Philippe e envia para a nuvem dele
+    if (userEmail === 'philippe.braga.37@gmail.com' || userEmail.includes('philippe') || userEmail === '') {
         try {
             const res = await fetch('./restored_backup.json');
             const data = await res.json();
             if (data && data.entries && data.entries.length > 0) {
-                appData.entries = data.entries;
+                appData.entries = data.entries.map(entry => ({
+                    ...entry,
+                    rides: parseFloat(entry.rides) || 0,
+                    tips: parseFloat(entry.tips) || 0,
+                    km: parseFloat(entry.km) || 0,
+                    hours: parseFloat(entry.hours) || 0,
+                    fuel: parseFloat(entry.fuel) || 0,
+                    food: parseFloat(entry.food) || 0,
+                    others: parseFloat(entry.others) || 0
+                }));
                 saveData();
                 updateUI();
                 
-                // Envia os 21 lançamentos resgatados para a nuvem da conta do Philippe
-                await window.SupabaseBackend.syncLocalEntriesToCloud(data.entries);
-                console.log("21 Lançamentos restaurados salvos na conta do Philippe no Supabase!");
+                // Envia os 21 lançamentos resgatados para a nuvem
+                if (currentUser) {
+                    await window.SupabaseBackend.syncLocalEntriesToCloud(data.entries);
+                    console.log("21 Lançamentos restaurados salvos no Supabase!");
+                }
                 return;
             }
         } catch (e) {
@@ -734,13 +754,13 @@ function updateUI() {
     let totalOthers = 0;
 
     filteredEntries.forEach(entry => {
-        totalRides += entry.rides;
-        totalTips += entry.tips;
-        totalKm += entry.km;
-        totalHours += entry.hours;
-        totalFuel += entry.fuel;
-        totalFood += entry.food;
-        totalOthers += entry.others;
+        totalRides += parseFloat(entry.rides) || 0;
+        totalTips += parseFloat(entry.tips) || 0;
+        totalKm += parseFloat(entry.km) || 0;
+        totalHours += parseFloat(entry.hours) || 0;
+        totalFuel += parseFloat(entry.fuel) || 0;
+        totalFood += parseFloat(entry.food) || 0;
+        totalOthers += parseFloat(entry.others) || 0;
     });
 
     const totalRevenue = totalRides + totalTips;

@@ -79,7 +79,16 @@ async function fetchCloudEntries() {
         console.error("Erro ao buscar dados do Supabase:", error);
         throw error;
     }
-    return data;
+    return (data || []).map(entry => ({
+        ...entry,
+        rides: parseFloat(entry.rides) || 0,
+        tips: parseFloat(entry.tips) || 0,
+        km: parseFloat(entry.km) || 0,
+        hours: parseFloat(entry.hours) || 0,
+        fuel: parseFloat(entry.fuel) || 0,
+        food: parseFloat(entry.food) || 0,
+        others: parseFloat(entry.others) || 0
+    }));
 }
 
 // Salva ou atualiza um registro no Supabase
