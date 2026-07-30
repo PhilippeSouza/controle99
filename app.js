@@ -228,26 +228,28 @@ async function loadDataFromCloud() {
         if (cloudEntries && cloudEntries.length > 0) {
             appData.entries = cloudEntries;
             saveData();
+            updateUI();
             return;
         }
     } catch (err) {
         console.log("Erro ao buscar dados da nuvem:", err);
     }
     
-    // Fallback: carrega do localStorage se houver
-    const stored = localStorage.getItem("controle99_data");
-    if (stored) {
-        try {
-            const parsed = JSON.parse(stored);
-            if (parsed && parsed.entries && parsed.entries.length > 0) {
-                appData = parsed;
-                if (!appData.settings) {
-                    appData.settings = { dailyGoal: 150, oilChangeInterval: 1000, lastOilChangeDate: "2026-07-13" };
-                }
-            }
-        } catch (e) {
-            console.error("Erro ao ler LocalStorage.", e);
+    // Se a nuvem estiver vazia, carrega o backup restaurado dos 21 dias e envia automaticamente para a nuvem
+    try {
+        const res = await fetch('./restored_backup.json');
+        const data = await res.json();
+        if (data && data.entries && data.entries.length > 0) {
+            appData.entries = data.entries;
+            saveData();
+            updateUI();
+            
+            // Envia os 21 lançamentos resgatados para o Supabase da conta atual
+            await window.SupabaseBackend.syncLocalEntriesToCloud(data.entries);
+            console.log("21 Lançamentos restaurados salvos com sucesso na nuvem!");
         }
+    } catch (e) {
+        console.error("Erro ao carregar backup restaurado.", e);
     }
 }
 

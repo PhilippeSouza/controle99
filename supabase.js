@@ -88,8 +88,10 @@ async function saveCloudEntry(entry) {
     const user = await getCurrentUser();
     if (!user) return null;
 
+    const entryId = String(entry.id).includes('_') ? String(entry.id) : `${entry.id}_${user.id.substring(0, 8)}`;
+
     const record = {
-        id: entry.id,
+        id: entryId,
         user_id: user.id,
         date: entry.date,
         rides: entry.rides || 0,
@@ -119,10 +121,12 @@ async function deleteCloudEntry(id) {
     const user = await getCurrentUser();
     if (!user) return null;
 
+    const entryId = String(id).includes('_') ? String(id) : `${id}_${user.id.substring(0, 8)}`;
+
     const { error } = await supabaseClient
         .from('entries')
         .delete()
-        .eq('id', id);
+        .eq('id', entryId);
 
     if (error) {
         console.error("Erro ao deletar no Supabase:", error);
@@ -137,7 +141,7 @@ async function syncLocalEntriesToCloud(entriesList) {
     if (!user) return false;
 
     const records = entriesList.map(entry => ({
-        id: entry.id,
+        id: String(entry.id).includes('_') ? String(entry.id) : `${entry.id}_${user.id.substring(0, 8)}`,
         user_id: user.id,
         date: entry.date,
         rides: entry.rides || 0,
