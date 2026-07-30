@@ -55,10 +55,23 @@ const elements = {
     saveConfigBtn: document.getElementById("save-config-btn"),
     closeModalBtn: document.getElementById("close-modal-btn"),
     
-    // Actions globais
+    // Actions e Modais de Backup / Tema
     themeToggle: document.getElementById("theme-toggle"),
     exportBtn: document.getElementById("export-btn"),
-    importFile: document.getElementById("import-file")
+    importBtn: document.getElementById("import-btn"),
+
+    backupModal: document.getElementById("backup-modal"),
+    backupShareBtn: document.getElementById("backup-share-btn"),
+    backupCopyBtn: document.getElementById("backup-copy-btn"),
+    backupDownloadBtn: document.getElementById("backup-download-btn"),
+    backupTextarea: document.getElementById("backup-textarea"),
+    closeBackupModalBtn: document.getElementById("close-backup-modal-btn"),
+
+    importModal: document.getElementById("import-modal"),
+    importFileModal: document.getElementById("import-file-modal"),
+    importTextarea: document.getElementById("import-textarea"),
+    closeImportModalBtn: document.getElementById("close-import-modal-btn"),
+    processImportBtn: document.getElementById("process-import-btn")
 };
 
 // Variável para instância do Gráfico
@@ -173,39 +186,157 @@ function setupEventListeners() {
         renderChart();
     });
 
-    // Backup: Exportar
+    // --- MODAL & LÓGICA DE BACKUP / EXPORTAR (Otimizado para iOS/iPhone e Desktop) ---
     elements.exportBtn.addEventListener("click", () => {
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appData));
-        const downloadAnchor = document.createElement('a');
-        downloadAnchor.setAttribute("href", dataStr);
-        downloadAnchor.setAttribute("download", `controle99_backup_${new Date().toISOString().split('T')[0]}.json`);
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        downloadAnchor.remove();
+        const jsonString = JSON.stringify(appData, null, 2);
+        elements.backupTextarea.value = jsonString;
+        elements.backupModal.classList.add("show");
     });
 
-    // Backup: Importar
-    elements.importFile.addEventListener("change", (e) => {
+    elements.closeBackupModalBtn.addEventListener("click", () => {
+        elements.backupModal.classList.remove("show");
+    });
+
+    // 1. Compartilhar nativo (WhatsApp, Arquivos, Notas, etc.)
+    elements.backupShareBtn.addEventListener("click", async () => {
+        const jsonString = JSON.stringify(appData, null, 2);
+        const fileName = `controle99_backup_${new Date().toISOString().split('T')[0]}.json`;
+
+        if (navigator.share) {
+            try {
+                const file = new File([jsonString], fileName, { type: 'application/json' });
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        files: [file],
+                        title: 'Backup controle99',
+                        text: 'Meu backup de dados do controle99'
+                    });
+                    return;
+                } else {
+                    await navigator.share({
+                        title: 'Backup controle99',
+                        text: jsonString
+                    });
+                    return;
+                }
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    console.error('Erro ao compartilhar:', err);
+                }
+            }
+        }
+        
+        // Fallback se Web Share não for suportado
+        copyBackupToClipboard(jsonString);
+    });
+
+    // 2. Copiar código de backup para área de transferência
+    elements.backupCopyBtn.addEventListener("click", () => {
+        copyBackupToClipboard(elements.backupTextarea.value);
+    });
+
+    // 3. Baixar arquivo .json (Blob)
+    elements.backupDownloadBtn.addEventListener("click", () => {
+        const jsonString = JSON.stringify(appData, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const fileName = `controle99_backup_${new Date().toISOString().split('T')[0]}.json`;
+        
+        const url = URL.createObjectURL(blob);
+        const downloadAnchor = document.createElement('a');
+        downloadAnchor.href = url;
+        downloadAnchor.download = fileName;
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        setTimeout(() => {
+            downloadAnchor.remove();
+            URL.revokeObjectURL(url);
+        }, 100);
+    });
+
+    // --- MODAL & LÓGICA DE IMPORTAR / RESTAURAR ---
+    elements.importBtn.addEventListener("click", () => {
+        elements.importTextarea.value = "";
+        elements.importModal.classList.add("show");
+    });
+
+    elements.closeImportModalBtn.addEventListener("click", () => {
+        elements.importModal.classList.remove("show");
+    });
+
+    // Importar via arquivo selecionado
+    elements.importFileModal.addEventListener("change", (e) => {
         const fileReader = new FileReader();
         fileReader.onload = function() {
             try {
                 const parsed = JSON.parse(fileReader.result);
-                if (parsed.entries && parsed.settings) {
-                    appData = parsed;
-                    saveData();
-                    updateUI();
-                    alert("Backup importado com sucesso!");
-                } else {
-                    alert("Arquivo de backup inválido.");
-                }
+                applyImportedData(parsed);
             } catch (err) {
-                alert("Erro ao ler o arquivo de backup.");
+                alert("Erro ao ler o arquivo. Verifique se o arquivo selecionado é um JSON de backup válido.");
             }
         };
         if (e.target.files[0]) {
             fileReader.readAsText(e.target.files[0]);
         }
     });
+
+    // Importar via texto colado
+    elements.processImportBtn.addEventListener("click", () => {
+        const rawText = elements.importTextarea.value.trim();
+        if (!rawText) {
+            alert("Por favor, selecione um arquivo de backup ou cole o código JSON no campo de texto.");
+            return;
+        }
+        try {
+            const parsed = JSON.parse(rawText);
+            applyImportedData(parsed);
+        } catch (err) {
+            alert("Código de backup inválido. Certifique-se de ter copiado o código completo.");
+        }
+    });
+}
+
+// Auxiliar: Copia texto com fallback para iOS
+function copyBackupToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            alert("✅ Código de backup copiado! Você pode colar no WhatsApp, Bloco de Notas ou e-mail.");
+        }).catch(() => {
+            fallbackCopy(text);
+        });
+    } else {
+        fallbackCopy(text);
+    }
+}
+
+function fallbackCopy(text) {
+    elements.backupTextarea.select();
+    elements.backupTextarea.setSelectionRange(0, 99999);
+    try {
+        document.execCommand('copy');
+        alert("✅ Código de backup copiado!");
+    } catch (e) {
+        alert("Selecione todo o texto da caixa e copie manualmente.");
+    }
+}
+
+// Auxiliar: Aplica os dados importados
+function applyImportedData(parsed) {
+    if (parsed && (parsed.entries || parsed.settings)) {
+        if (confirm("Isto substituirá os dados atuais nesta máquina pelos dados do backup. Deseja continuar?")) {
+            appData = {
+                entries: parsed.entries || [],
+                settings: parsed.settings || { dailyGoal: 150, oilChangeInterval: 1000, lastOilChangeDate: "" },
+                theme: parsed.theme || "dark"
+            };
+            saveData();
+            initTheme();
+            updateUI();
+            elements.importModal.classList.remove("show");
+            alert("🎉 Backup restaurado com sucesso!");
+        }
+    } else {
+        alert("O conteúdo fornecido não parece ser um backup válido do controle99.");
+    }
 }
 
 // Inicializa o tema do App
