@@ -685,3 +685,75 @@ tr:hover td {
         font-size: 1.5rem;
     }
 }
+
+/* === TELA DE LOGIN === */
+.login-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--bg-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    overflow-y: auto;
+}
+
+.login-screen.hidden {
+    display: none;
+}
+
+.login-container {
+    text-align: center;
+    width: 100%;
+    max-width: 400px;
+    padding: 2rem;
+}
+
+.login-logo {
+    margin-bottom: 2rem;
+}
+
+.login-logo .logo-icon {
+    font-size: 3rem;
+    color: var(--accent-yellow);
+    margin-bottom: 0.5rem;
+}
+
+.login-logo h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: var(--text-color);
+}
+
+.login-logo h1 span {
+    color: var(--accent-yellow);
+}
+
+.login-logo p {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.login-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+}
+
+.login-card h2 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    color: var(--text-color);
+}
+
+.login-footer {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+

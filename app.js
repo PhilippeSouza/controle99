@@ -99,29 +99,135 @@ let financeChart = null;
 
 // Inicialização
 document.addEventListener("DOMContentLoaded", () => {
-    loadData();
-    setDefaultDate();
     initTheme();
-    updateUI();
     setupEventListeners();
+    setupLoginScreen();
     
-    // Checa sessão do Supabase ao carregar (se já estiver logado)
-    setTimeout(() => {
-        checkUserSession();
-    }, 500);
+    // Checa se o usuário já está logado
+    checkLoginState();
 });
 
-// Define a data padrão do formulário como "hoje"
-function setDefaultDate() {
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    elements.dateInput.value = `${yyyy}-${mm}-${dd}`;
+// Configura os event listeners da tela de login
+function setupLoginScreen() {
+    const loginEnterBtn = document.getElementById("login-enter-btn");
+    const loginCreateBtn = document.getElementById("login-create-btn");
+    const loginEmail = document.getElementById("login-email");
+    const loginPassword = document.getElementById("login-password");
+    const loginError = document.getElementById("login-error");
+
+    if (!loginEnterBtn) return;
+
+    loginEnterBtn.addEventListener("click", async () => {
+        const email = loginEmail.value.trim();
+        const password = loginPassword.value.trim();
+        if (!email || !password) {
+            showLoginError("Preencha o e-mail e a senha.");
+            return;
+        }
+        try {
+            loginEnterBtn.innerText = "Entrando...";
+            loginEnterBtn.disabled = true;
+            await window.SupabaseBackend.signInUser(email, password);
+            showLoginError("");
+            await enterApp();
+        } catch (err) {
+            showLoginError("E-mail ou senha incorretos. Tente novamente.");
+        } finally {
+            loginEnterBtn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Entrar';
+            loginEnterBtn.disabled = false;
+        }
+    });
+
+    loginCreateBtn.addEventListener("click", async () => {
+        const email = loginEmail.value.trim();
+        const password = loginPassword.value.trim();
+        if (!email || !password) {
+            showLoginError("Preencha o e-mail e a senha para criar a conta.");
+            return;
+        }
+        if (password.length < 6) {
+            showLoginError("A senha deve ter pelo menos 6 caracteres.");
+            return;
+        }
+        try {
+            loginCreateBtn.innerText = "Criando conta...";
+            loginCreateBtn.disabled = true;
+            await window.SupabaseBackend.signUpUser(email, password);
+            // Tenta logar automaticamente após criar
+            await window.SupabaseBackend.signInUser(email, password);
+            showLoginError("");
+            await enterApp();
+        } catch (err) {
+            showLoginError("Erro ao criar conta: " + (err.message || err));
+        } finally {
+            loginCreateBtn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Criar Nova Conta';
+            loginCreateBtn.disabled = false;
+        }
+    });
 }
 
-// Carrega os dados do LocalStorage (ou carrega o backup restaurado inicial se estiver vazio)
-function loadData() {
+function showLoginError(msg) {
+    const loginError = document.getElementById("login-error");
+    if (loginError) {
+        loginError.innerText = msg;
+        loginError.style.display = msg ? "block" : "none";
+    }
+}
+
+// Checa se o usuário já tem sessão ativa
+async function checkLoginState() {
+    if (!window.SupabaseBackend) {
+        showLoginScreen();
+        return;
+    }
+    try {
+        const user = await window.SupabaseBackend.getCurrentUser();
+        if (user) {
+            await enterApp();
+        } else {
+            showLoginScreen();
+        }
+    } catch (err) {
+        showLoginScreen();
+    }
+}
+
+// Mostra a tela de login e esconde o app
+function showLoginScreen() {
+    const loginScreen = document.getElementById("login-screen");
+    const appContainer = document.getElementById("app-container");
+    if (loginScreen) loginScreen.classList.remove("hidden");
+    if (appContainer) appContainer.style.display = "none";
+}
+
+// Entra no app: esconde login, mostra painel e carrega dados da nuvem
+async function enterApp() {
+    const loginScreen = document.getElementById("login-screen");
+    const appContainer = document.getElementById("app-container");
+    if (loginScreen) loginScreen.classList.add("hidden");
+    if (appContainer) appContainer.style.display = "";
+
+    // Carrega dados do Supabase
+    await loadDataFromCloud();
+    setDefaultDate();
+    updateUI();
+    checkUserSession();
+}
+
+// Carrega dados do Supabase (nuvem) prioritariamente
+async function loadDataFromCloud() {
+    try {
+        const cloudEntries = await window.SupabaseBackend.fetchCloudEntries();
+        if (cloudEntries && cloudEntries.length > 0) {
+            appData.entries = cloudEntries;
+            saveData();
+            return;
+        }
+    } catch (err) {
+        console.log("Erro ao buscar dados da nuvem:", err);
+    }
+    
+    // Fallback: carrega do localStorage se houver
     const stored = localStorage.getItem("controle99_data");
     if (stored) {
         try {
@@ -131,24 +237,20 @@ function loadData() {
                 if (!appData.settings) {
                     appData.settings = { dailyGoal: 150, oilChangeInterval: 1000, lastOilChangeDate: "2026-07-13" };
                 }
-                return;
             }
         } catch (e) {
-            console.error("Erro ao ler LocalStorage, tentando backup inicial.", e);
+            console.error("Erro ao ler LocalStorage.", e);
         }
     }
-    
-    // Tenta carregar automaticamente o backup reconstruído inicial
-    fetch('./restored_backup.json')
-        .then(res => res.json())
-        .then(data => {
-            if (data && data.entries) {
-                appData = data;
-                saveData();
-                updateUI();
-            }
-        })
-        .catch(err => console.log("Sem backup inicial pré-carregado.", err));
+}
+
+// Define a data padrão do formulário como "hoje"
+function setDefaultDate() {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    elements.dateInput.value = `${yyyy}-${mm}-${dd}`;
 }
 
 // Salva os dados no LocalStorage
@@ -414,8 +516,9 @@ function setupEventListeners() {
         elements.logoutBtn.addEventListener("click", async () => {
             if (confirm("Deseja sair da sua conta?")) {
                 await window.SupabaseBackend.signOutUser();
-                alert("Você saiu da conta.");
-                checkUserSession();
+                localStorage.removeItem("controle99_data");
+                appData = { entries: [], settings: { dailyGoal: 150, oilChangeInterval: 1000, lastOilChangeDate: "" }, theme: "dark" };
+                showLoginScreen();
             }
         });
     }

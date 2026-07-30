@@ -24,7 +24,37 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="app-container">
+    <!-- Tela de Login Obrigatória -->
+    <div id="login-screen" class="login-screen">
+        <div class="login-container">
+            <div class="login-logo">
+                <i class="fa-solid fa-motorcycle logo-icon"></i>
+                <h1>controle<span>99</span></h1>
+                <p>Controle de Gastos & Ganhos</p>
+            </div>
+            <div class="login-card">
+                <h2 id="login-title">Entrar na sua conta</h2>
+                <div class="input-group full-width" style="margin-bottom: 0.75rem;">
+                    <label for="login-email">E-mail</label>
+                    <input type="email" id="login-email" placeholder="seuemail@exemplo.com">
+                </div>
+                <div class="input-group full-width" style="margin-bottom: 1rem;">
+                    <label for="login-password">Senha</label>
+                    <input type="password" id="login-password" placeholder="Sua senha">
+                </div>
+                <button id="login-enter-btn" class="btn-primary" style="width: 100%; margin-bottom: 0.5rem;">
+                    <i class="fa-solid fa-right-to-bracket"></i> Entrar
+                </button>
+                <button id="login-create-btn" class="btn-secondary" style="width: 100%;">
+                    <i class="fa-solid fa-user-plus"></i> Criar Nova Conta
+                </button>
+                <p id="login-error" style="color: var(--accent-red); font-size: 0.85rem; margin-top: 0.75rem; display: none;"></p>
+            </div>
+            <p class="login-footer">Desenvolvido com carinho para os profissionais das duas rodas. © 2026</p>
+        </div>
+    </div>
+
+    <div class="app-container" id="app-container" style="display: none;">
         <!-- Sidebar/Navegação -->
         <header class="app-header">
             <div class="logo-area">
