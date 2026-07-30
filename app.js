@@ -233,6 +233,7 @@ async function loadDataFromCloud() {
 
     const userEmail = currentUser && currentUser.email ? currentUser.email.toLowerCase().trim() : "";
 
+    // 1. Tenta carregar os lançamentos existentes do Supabase
     try {
         const cloudEntries = await window.SupabaseBackend.fetchCloudEntries();
         if (cloudEntries && cloudEntries.length > 0) {
@@ -251,10 +252,10 @@ async function loadDataFromCloud() {
             return;
         }
     } catch (err) {
-        console.log("Erro ao buscar dados da nuvem:", err);
+        console.log("Aviso ao buscar dados da nuvem:", err);
     }
     
-    // Se a nuvem estiver vazia, restaura o backup dos 21 dias para o Philippe e envia para a nuvem dele
+    // 2. Se for a conta do Philippe e a nuvem não trouxe registros, carrega os 21 dias restaurados
     if (userEmail === 'philippe.braga.37@gmail.com' || userEmail.includes('philippe') || userEmail === '') {
         try {
             const res = await fetch('./restored_backup.json');
@@ -272,11 +273,12 @@ async function loadDataFromCloud() {
                 }));
                 saveData();
                 updateUI();
-                
-                // Envia os 21 lançamentos resgatados para a nuvem
+
+                // Sincroniza em segundo plano sem travar nem zerar a tela
                 if (currentUser) {
-                    await window.SupabaseBackend.syncLocalEntriesToCloud(data.entries);
-                    console.log("21 Lançamentos restaurados salvos no Supabase!");
+                    window.SupabaseBackend.syncLocalEntriesToCloud(data.entries).catch(err => {
+                        console.log("Sincronização em segundo plano:", err);
+                    });
                 }
                 return;
             }
@@ -285,10 +287,12 @@ async function loadDataFromCloud() {
         }
     }
 
-    // Para qualquer outra conta nova ou zerada, mantém limpo com 0 lançamentos
-    appData.entries = [];
-    saveData();
-    updateUI();
+    // 3. APENAS se for uma conta nova de OUTRO usuário, inicia limpo com 0 registros
+    if (currentUser && userEmail !== 'philippe.braga.37@gmail.com' && !userEmail.includes('philippe')) {
+        appData.entries = [];
+        saveData();
+        updateUI();
+    }
 }
 
 // Define a data padrão do formulário como "hoje"
