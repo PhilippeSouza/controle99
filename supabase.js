@@ -1,6 +1,6 @@
 // Configuração do Supabase Client
 let SUPABASE_URL = localStorage.getItem("controle99_supabase_url") || "https://akqslhjjuesacfkqrgmi.supabase.co";
-let SUPABASE_ANON_KEY = localStorage.getItem("controle99_supabase_key") || "";
+let SUPABASE_ANON_KEY = localStorage.getItem("controle99_supabase_key") || "sb_publishable_ln_JFjuDC1KRSDNp2G7cuQ_TvIl483h";
 
 let supabaseClient = null;
 
