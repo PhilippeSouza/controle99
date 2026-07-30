@@ -95,20 +95,35 @@ function setDefaultDate() {
     elements.dateInput.value = `${yyyy}-${mm}-${dd}`;
 }
 
-// Carrega os dados do LocalStorage
+// Carrega os dados do LocalStorage (ou carrega o backup restaurado inicial se estiver vazio)
 function loadData() {
     const stored = localStorage.getItem("controle99_data");
     if (stored) {
         try {
-            appData = JSON.parse(stored);
-            // Garante retrocompatibilidade se faltar chaves de configurações
-            if (!appData.settings) {
-                appData.settings = { dailyGoal: 150, oilChangeInterval: 1000, lastOilChangeDate: "" };
+            const parsed = JSON.parse(stored);
+            if (parsed && parsed.entries && parsed.entries.length > 0) {
+                appData = parsed;
+                if (!appData.settings) {
+                    appData.settings = { dailyGoal: 150, oilChangeInterval: 1000, lastOilChangeDate: "2026-07-13" };
+                }
+                return;
             }
         } catch (e) {
-            console.error("Erro ao ler LocalStorage, reiniciando dados.", e);
+            console.error("Erro ao ler LocalStorage, tentando backup inicial.", e);
         }
     }
+    
+    // Tenta carregar automaticamente o backup reconstruído inicial
+    fetch('./restored_backup.json')
+        .then(res => res.json())
+        .then(data => {
+            if (data && data.entries) {
+                appData = data;
+                saveData();
+                updateUI();
+            }
+        })
+        .catch(err => console.log("Sem backup inicial pré-carregado.", err));
 }
 
 // Salva os dados no LocalStorage
@@ -580,6 +595,9 @@ function renderHistoryTable(entriesList) {
             </td>
             <td><span class="status-badge" style="background-color: var(--bg-card); border: 1px solid var(--border-color);">${efficiency}</span></td>
             <td class="actions-cell">
+                <button class="btn-table-icon" onclick="showDetailsEntry('${entry.id}')" title="Ver Detalhes do Dia">
+                    <i class="fa-solid fa-circle-info"></i>
+                </button>
                 <button class="btn-table-icon" onclick="deleteEntry('${entry.id}')" title="Excluir Lançamento">
                     <i class="fa-solid fa-trash-can"></i>
                 </button>
@@ -588,6 +606,40 @@ function renderHistoryTable(entriesList) {
         elements.historyList.appendChild(row);
     });
 }
+
+// Exibe modal ou alerta com o detalhamento completo do dia selecionado
+function showDetailsEntry(id) {
+    const entry = appData.entries.find(e => e.id === id);
+    if (!entry) return;
+
+    const totalRevenue = entry.rides + entry.tips;
+    const totalExpenses = entry.fuel + entry.food + entry.others;
+    const netProfit = totalRevenue - totalExpenses;
+
+    const detailText = `
+📅 DETALHES DO DIA ${formatDateString(entry.date)}
+
+💰 GANHOS:
+- Corridas 99: ${formatCurrency(entry.rides)}
+- Gorjetas: ${formatCurrency(entry.tips)}
+- Total Faturamento: ${formatCurrency(totalRevenue)}
+
+💸 GASTOS:
+- Combustível: ${formatCurrency(entry.fuel)}
+- Alimentação: ${formatCurrency(entry.food)}
+- Outros (Aluguel / Manutenção / Óleo): ${formatCurrency(entry.others)}
+- Total Despesas: ${formatCurrency(totalExpenses)}
+
+📊 RESUMO:
+- Lucro Líquido: ${formatCurrency(netProfit)}
+- Km Rodados: ${entry.km.toFixed(1)} km
+- Horas Trabalhadas: ${entry.hours} h
+- Observações: ${entry.notes || 'Nenhuma'}
+    `.trim();
+
+    alert(detailText);
+}
+window.showDetailsEntry = showDetailsEntry;
 
 // Renderiza o gráfico do Chart.js
 function renderChart() {
