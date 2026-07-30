@@ -574,36 +574,6 @@ function setupEventListeners() {
     }
 }
 
-// Checa sessão do usuário no Supabase e sincroniza dados em nuvem
-async function checkUserSession() {
-    if (!window.SupabaseBackend) return;
-    try {
-        const user = await window.SupabaseBackend.getCurrentUser();
-        if (user) {
-            elements.userBadge.style.display = "inline-flex";
-            elements.userEmailText.innerText = user.email;
-            elements.authBtn.style.display = "none";
-
-            const cloudEntries = await window.SupabaseBackend.fetchCloudEntries();
-            if (cloudEntries && cloudEntries.length > 0) {
-                appData.entries = cloudEntries;
-                saveData();
-                updateUI();
-            } else if (appData.entries && appData.entries.length > 0) {
-                if (confirm(`Sua conta na nuvem está vazia. Deseja enviar seus ${appData.entries.length} lançamentos salvos para a sua conta na nuvem agora?`)) {
-                    await window.SupabaseBackend.syncLocalEntriesToCloud(appData.entries);
-                    alert("🚀 Lançamentos resgatados foram salvos com sucesso no seu banco em nuvem!");
-                }
-            }
-        } else {
-            elements.userBadge.style.display = "none";
-            elements.authBtn.style.display = "inline-flex";
-        }
-    } catch (err) {
-        console.log("Supabase aguardando login ou chaves.", err);
-    }
-}
-
 // Auxiliar: Copia texto com fallback para iOS
 function copyBackupToClipboard(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
