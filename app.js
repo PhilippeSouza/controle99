@@ -223,6 +223,11 @@ async function enterApp() {
 
 // Carrega dados do Supabase (nuvem) prioritariamente
 async function loadDataFromCloud() {
+    let currentUser = null;
+    try {
+        currentUser = await window.SupabaseBackend.getCurrentUser();
+    } catch(e) {}
+
     try {
         const cloudEntries = await window.SupabaseBackend.fetchCloudEntries();
         if (cloudEntries && cloudEntries.length > 0) {
@@ -235,22 +240,30 @@ async function loadDataFromCloud() {
         console.log("Erro ao buscar dados da nuvem:", err);
     }
     
-    // Se a nuvem estiver vazia, carrega o backup restaurado dos 21 dias e envia automaticamente para a nuvem
-    try {
-        const res = await fetch('./restored_backup.json');
-        const data = await res.json();
-        if (data && data.entries && data.entries.length > 0) {
-            appData.entries = data.entries;
-            saveData();
-            updateUI();
-            
-            // Envia os 21 lançamentos resgatados para o Supabase da conta atual
-            await window.SupabaseBackend.syncLocalEntriesToCloud(data.entries);
-            console.log("21 Lançamentos restaurados salvos com sucesso na nuvem!");
+    // Apenas se a conta for a do Philippe (philippe.braga.37@gmail.com) e a nuvem estiver vazia, restaura o backup dos 21 dias
+    if (currentUser && currentUser.email === 'philippe.braga.37@gmail.com') {
+        try {
+            const res = await fetch('./restored_backup.json');
+            const data = await res.json();
+            if (data && data.entries && data.entries.length > 0) {
+                appData.entries = data.entries;
+                saveData();
+                updateUI();
+                
+                // Envia os 21 lançamentos resgatados para a nuvem da conta do Philippe
+                await window.SupabaseBackend.syncLocalEntriesToCloud(data.entries);
+                console.log("21 Lançamentos restaurados salvos na conta de Philippe!");
+                return;
+            }
+        } catch (e) {
+            console.error("Erro ao carregar backup restaurado.", e);
         }
-    } catch (e) {
-        console.error("Erro ao carregar backup restaurado.", e);
     }
+
+    // Para qualquer outra conta nova ou diferente, mantém o banco zerado
+    appData.entries = [];
+    saveData();
+    updateUI();
 }
 
 // Define a data padrão do formulário como "hoje"
