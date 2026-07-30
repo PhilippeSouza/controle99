@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>controle99 - Controle Financeiro 99moto</title>
+    <!-- PWA e Suporte iOS -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon.png">
+    <meta name="theme-color" content="#090a0f">
+
+    <!-- Google Fonts: Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Chart.js para Gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome para ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar/Navegação -->
+        <header class="app-header">
+            <div class="logo-area">
+                <i class="fa-solid fa-motorcycle logo-icon"></i>
+                <div class="logo-text">
+                    <h1>controle<span>99</span></h1>
+                    <p>Controle de Gastos & Ganhos</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button id="theme-toggle" class="btn-icon" title="Alternar Tema">
+                    <i class="fa-solid fa-moon"></i>
+                </button>
+                <button id="export-btn" class="btn-secondary" title="Exportar Backup">
+                    <i class="fa-solid fa-download"></i> <span class="hide-mobile">Exportar</span>
+                </button>
+                <label for="import-file" class="btn-secondary" title="Importar Backup" style="cursor: pointer;">
+                    <i class="fa-solid fa-upload"></i> <span class="hide-mobile">Importar</span>
+                    <input type="file" id="import-file" style="display: none;" accept=".json">
+                </label>
+            </div>
+        </header>
+
+        <!-- Conteúdo Principal -->
+        <main class="app-main">
+            <!-- Grid de Resumos / KPIs -->
+            <section class="kpi-grid">
+                <!-- Card Lucro Líquido -->
+                <div class="kpi-card highlight">
+                    <div class="kpi-icon-wrapper profit">
+                        <i class="fa-solid fa-wallet"></i>
+                    </div>
+                    <div class="kpi-info">
+                        <h3>Lucro Líquido</h3>
+                        <p id="kpi-net-profit">R$ 0,00</p>
+                        <span id="kpi-profit-pct" class="trend neutral">0% do faturamento</span>
+                    </div>
+                </div>
+
+                <!-- Card Faturamento Total -->
+                <div class="kpi-card">
+                    <div class="kpi-icon-wrapper revenue">
+                        <i class="fa-solid fa-hand-holding-dollar"></i>
+                    </div>
+                    <div class="kpi-info">
+                        <h3>Ganhos Totais</h3>
+                        <p id="kpi-gross-revenue">R$ 0,00</p>
+                        <span id="kpi-rides-count">0 corridas registradas</span>
+                    </div>
+                </div>
+
+                <!-- Card Gastos Totais -->
+                <div class="kpi-card">
+                    <div class="kpi-icon-wrapper expense">
+                        <i class="fa-solid fa-gas-pump"></i>
+                    </div>
+                    <div class="kpi-info">
+                        <h3>Gastos Totais</h3>
+                        <p id="kpi-total-expenses">R$ 0,00</p>
+                        <span id="kpi-expense-pct">0% de despesas</span>
+                    </div>
+                </div>
+
+                <!-- Card Quilometragem e Desempenho -->
+                <div class="kpi-card">
+                    <div class="kpi-icon-wrapper performance">
+                        <i class="fa-solid fa-road"></i>
+                    </div>
+                    <div class="kpi-info">
+                        <h3>Km Rodados</h3>
+                        <p id="kpi-total-km">0.0 km</p>
+                        <span id="kpi-earning-per-km" class="trend success">R$ 0,00 / km</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Alerta de Manutenção e Meta -->
+            <section class="dashboard-widgets">
+                <!-- Widget Alerta de Óleo -->
+                <div class="widget-card widget-oil">
+                    <div class="widget-header">
+                        <h4><i class="fa-solid fa-circle-exclamation"></i> Troca de Óleo</h4>
+                        <button id="reset-oil-btn" class="btn-text" title="Zerar Km após troca">Zerar</button>
+                    </div>
+                    <div class="widget-body">
+                        <div class="progress-bar-container">
+                            <div id="oil-progress" class="progress-bar" style="width: 0%"></div>
+                        </div>
+                        <div class="widget-details">
+                            <span id="oil-km-text">0 / 1000 km rodados</span>
+                            <span id="oil-status-text" class="status-badge green">Tudo Ok</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Widget Meta Diária -->
+                <div class="widget-card widget-goal">
+                    <div class="widget-header">
+                        <h4><i class="fa-solid fa-bullseye"></i> Meta Diária (Hoje)</h4>
+                        <button id="edit-goal-btn" class="btn-text" title="Alterar meta">Definir</button>
+                    </div>
+                    <div class="widget-body">
+                        <div class="progress-bar-container">
+                            <div id="goal-progress" class="progress-bar goal-bar" style="width: 0%"></div>
+                        </div>
+                        <div class="widget-details">
+                            <span id="goal-text">R$ 0,00 / R$ 150,00</span>
+                            <span id="goal-status-text" class="status-badge">0%</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Layout Duas Colunas: Formulário e Gráficos -->
+            <div class="dashboard-layout">
+                <!-- Coluna Esquerda: Formulário -->
+                <section class="form-section">
+                    <div class="card">
+                        <h2><i class="fa-solid fa-plus-circle"></i> Novo Lançamento</h2>
+                        <form id="entry-form">
+                            <!-- Tipo de Lançamento (Ganho ou Gasto rápido) -->
+                            <div class="form-row date-row">
+                                <div class="input-group">
+                                    <label for="entry-date">Data</label>
+                                    <input type="date" id="entry-date" required>
+                                </div>
+                            </div>
+
+                            <div class="form-divider">Ganhos</div>
+
+                            <div class="form-row">
+                                <div class="input-group">
+                                    <label for="earnings-rides">Corridas 99 (R$)</label>
+                                    <input type="number" id="earnings-rides" min="0" step="0.01" placeholder="0,00">
+                                </div>
+                                <div class="input-group">
+                                    <label for="earnings-tips">Gorjetas (R$)</label>
+                                    <input type="number" id="earnings-tips" min="0" step="0.01" placeholder="0,00">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="input-group">
+                                    <label for="km-traveled">Km Rodados (km)</label>
+                                    <input type="number" id="km-traveled" min="0" step="0.1" placeholder="0.0">
+                                </div>
+                                <div class="input-group">
+                                    <label for="hours-worked">Horas Online (h)</label>
+                                    <input type="number" id="hours-worked" min="0" step="0.1" placeholder="0.0">
+                                </div>
+                            </div>
+
+                            <div class="form-divider">Gastos</div>
+
+                            <div class="form-row">
+                                <div class="input-group">
+                                    <label for="expense-fuel">Combustível (R$)</label>
+                                    <input type="number" id="expense-fuel" min="0" step="0.01" placeholder="0,00">
+                                </div>
+                                <div class="input-group">
+                                    <label for="expense-food">Alimentação (R$)</label>
+                                    <input type="number" id="expense-food" min="0" step="0.01" placeholder="0,00">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="input-group full-width">
+                                    <label for="expense-others">Outros Gastos (R$)</label>
+                                    <input type="number" id="expense-others" min="0" step="0.01" placeholder="0,00">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="input-group full-width">
+                                    <label for="entry-notes">Observações</label>
+                                    <input type="text" id="entry-notes" placeholder="Ex: chuva forte, pneu furado...">
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn-primary">
+                                <i class="fa-solid fa-save"></i> Salvar Lançamento
+                            </button>
+                        </form>
+                    </div>
+                </section>
+
+                <!-- Coluna Direita: Gráficos e Insights -->
+                <section class="charts-section">
+                    <div class="card chart-card">
+                        <div class="chart-header">
+                            <h2><i class="fa-solid fa-chart-line"></i> Evolução Financeira</h2>
+                            <div class="chart-legend-custom">
+                                <span class="legend-item"><span class="legend-dot profit"></span> Lucro</span>
+                                <span class="legend-item"><span class="legend-dot expense"></span> Gastos</span>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="finance-chart"></canvas>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Seção do Histórico (Tabela de Registros) -->
+            <section class="history-section">
+                <div class="card">
+                    <div class="history-header">
+                        <h2><i class="fa-solid fa-list-check"></i> Histórico de Trabalho</h2>
+                        <div class="history-filters">
+                            <select id="filter-period">
+                                <option value="all">Todo o histórico</option>
+                                <option value="7">Últimos 7 dias</option>
+                                <option value="30">Últimos 30 dias</option>
+                            </select>
+                            <button id="clear-data-btn" class="btn-danger" title="Apagar todos os dados">
+                                <i class="fa-solid fa-trash-can"></i> Limpar Tudo
+                            </button>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table id="history-table">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Km Rodados</th>
+                                    <th>Corridas + Gorjetas</th>
+                                    <th>Gastos Totais</th>
+                                    <th>Lucro Líquido</th>
+                                    <th>Eficiência</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history-list">
+                                <!-- Preenchido dinamicamente via JS -->
+                                <tr class="empty-row">
+                                    <td colspan="7">Nenhum dia de trabalho cadastrado ainda. Comece lançando acima!</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+        
+        <!-- Rodapé -->
+        <footer class="app-footer">
+            <p>Desenvolvido com carinho para os profissionais das duas rodas. &copy; 2026 controle99.</p>
+        </footer>
+    </div>
+
+    <!-- Modal de Configuração de Meta -->
+    <div id="goal-modal" class="modal">
+        <div class="modal-content card">
+            <h3><i class="fa-solid fa-pencil"></i> Configurações</h3>
+            <div class="form-row">
+                <div class="input-group">
+                    <label for="config-goal-input">Meta Diária de Ganho (R$)</label>
+                    <input type="number" id="config-goal-input" min="0" step="1" value="150">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="input-group">
+                    <label for="config-oil-input">Km Limite para Troca de Óleo</label>
+                    <input type="number" id="config-oil-input" min="0" step="100" value="1000">
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button id="close-modal-btn" class="btn-secondary">Cancelar</button>
+                <button id="save-config-btn" class="btn-primary">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
