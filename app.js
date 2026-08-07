@@ -111,8 +111,26 @@ document.addEventListener("DOMContentLoaded", () => {
 function setupLoginScreen() {
     const loginEnterBtn = document.getElementById("login-enter-btn");
     const loginCreateBtn = document.getElementById("login-create-btn");
+    const loginGoogleBtn = document.getElementById("login-google-btn");
     const loginEmail = document.getElementById("login-email");
     const loginPassword = document.getElementById("login-password");
+
+    if (loginGoogleBtn) {
+        loginGoogleBtn.addEventListener("click", async () => {
+            try {
+                loginGoogleBtn.innerText = "Conectando ao Google...";
+                loginGoogleBtn.disabled = true;
+                await window.FirebaseBackend.signInWithGoogle();
+                showLoginError("");
+                await enterApp();
+            } catch (err) {
+                showLoginError("Erro no login com Google: " + (err.message || err));
+            } finally {
+                loginGoogleBtn.innerHTML = '<i class="fa-brands fa-google"></i> Entrar com o Google';
+                loginGoogleBtn.disabled = false;
+            }
+        });
+    }
 
     if (!loginEnterBtn) return;
 

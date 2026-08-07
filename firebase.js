@@ -51,6 +51,23 @@ initFirebase();
 
 // --- MÉTODOS DE AUTENTICAÇÃO ---
 
+async function signInWithGoogle() {
+    if (!auth) throw new Error("Firebase Auth não está configurado.");
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.addScope('email');
+    provider.addScope('profile');
+    try {
+        const result = await auth.signInWithPopup(provider);
+        return result.user;
+    } catch (err) {
+        if (err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user') {
+            await auth.signInWithRedirect(provider);
+        } else {
+            throw err;
+        }
+    }
+}
+
 async function signUpUser(email, password) {
     if (!auth) throw new Error("Firebase Auth não está configurado.");
     const userCredential = await auth.createUserWithEmailAndPassword(email, password);
@@ -185,6 +202,7 @@ async function syncLocalEntriesToCloud(entriesList) {
 window.FirebaseBackend = {
     initFirebase,
     saveFirebaseConfig,
+    signInWithGoogle,
     signUpUser,
     signInUser,
     signOutUser,
