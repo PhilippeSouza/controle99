@@ -242,16 +242,8 @@ async function enterApp() {
     initTheme();
 }
 
-// Carrega dados do Supabase (nuvem) prioritariamente
+// Carrega dados do Firebase (Firestore) prioritariamente
 async function loadDataFromCloud() {
-    let currentUser = null;
-    try {
-        currentUser = await window.FirebaseBackend.getCurrentUser();
-    } catch(e) {}
-
-    const userEmail = currentUser && currentUser.email ? currentUser.email.toLowerCase().trim() : "";
-
-    // 1. Tenta carregar os lançamentos existentes do Supabase
     try {
         const cloudEntries = await window.FirebaseBackend.fetchCloudEntries();
         if (cloudEntries && cloudEntries.length > 0) {
@@ -273,44 +265,10 @@ async function loadDataFromCloud() {
         console.log("Aviso ao buscar dados da nuvem:", err);
     }
     
-    // 2. Se for a conta do Philippe e a nuvem não trouxe registros, carrega os 21 dias restaurados
-    if (userEmail === 'philippe.braga.37@gmail.com' || userEmail.includes('philippe') || userEmail === '') {
-        try {
-            const res = await fetch('./restored_backup.json');
-            const data = await res.json();
-            if (data && data.entries && data.entries.length > 0) {
-                appData.entries = data.entries.map(entry => ({
-                    ...entry,
-                    rides: parseFloat(entry.rides) || 0,
-                    tips: parseFloat(entry.tips) || 0,
-                    km: parseFloat(entry.km) || 0,
-                    hours: parseFloat(entry.hours) || 0,
-                    fuel: parseFloat(entry.fuel) || 0,
-                    food: parseFloat(entry.food) || 0,
-                    others: parseFloat(entry.others) || 0
-                }));
-                saveData();
-                updateUI();
-
-                // Sincroniza em segundo plano sem travar nem zerar a tela
-                if (currentUser) {
-                    window.FirebaseBackend.syncLocalEntriesToCloud(data.entries).catch(err => {
-                        console.log("Sincronização em segundo plano:", err);
-                    });
-                }
-                return;
-            }
-        } catch (e) {
-            console.error("Erro ao carregar backup restaurado.", e);
-        }
-    }
-
-    // 3. APENAS se for uma conta nova de OUTRO usuário, inicia limpo com 0 registros
-    if (currentUser && userEmail !== 'philippe.braga.37@gmail.com' && !userEmail.includes('philippe')) {
-        appData.entries = [];
-        saveData();
-        updateUI();
-    }
+    // Se a nuvem estiver vazia (conta nova ou após zerar o histórico), mantém 100% zerado
+    appData.entries = [];
+    saveData();
+    updateUI();
 }
 
 // Define a data padrão do formulário como "hoje"
@@ -341,12 +299,20 @@ function setupEventListeners() {
     // Filtro de Histórico
     elements.filterPeriod.addEventListener("change", updateUI);
 
-    // Botão Limpar Tudo
-    elements.clearDataBtn.addEventListener("click", () => {
-        if (confirm("Tem certeza que deseja apagar TODOS os seus lançamentos? Esta ação não pode ser desfeita.")) {
+    // Botão Limpar Tudo (Apaga no banco em nuvem e localmente)
+    elements.clearDataBtn.addEventListener("click", async () => {
+        if (confirm("Tem certeza que deseja apagar TODOS os seus lançamentos permanentemente da sua conta? Esta ação não pode ser desfeita.")) {
             appData.entries = [];
             saveData();
             updateUI();
+            if (window.FirebaseBackend) {
+                try {
+                    await window.FirebaseBackend.clearAllCloudEntries();
+                } catch (e) {
+                    console.error("Erro ao apagar histórico da nuvem:", e);
+                }
+            }
+            alert("🗑️ Todo o seu histórico foi apagado permanentemente da sua conta!");
         }
     });
 
@@ -504,83 +470,8 @@ function setupEventListeners() {
         }
     });
 
-    // --- AUTENTICAÇÃO E CONEXÃO SUPABASE ---
-    if (elements.authBtn) {
-        elements.authBtn.addEventListener("click", () => {
-            elements.authModal.classList.add("show");
-        });
-
-        elements.closeAuthModalBtn.addEventListener("click", () => {
-            elements.authModal.classList.remove("show");
-        });
-
-        elements.openConfigBtn.addEventListener("click", () => {
-            elements.authModal.classList.remove("show");
-            elements.supabaseUrlInput.value = localStorage.getItem("controle99_supabase_url") || "";
-            elements.supabaseKeyInput.value = localStorage.getItem("controle99_supabase_key") || "";
-            elements.supabaseConfigModal.classList.add("show");
-        });
-
-        elements.closeSupabaseConfigModalBtn.addEventListener("click", () => {
-            elements.supabaseConfigModal.classList.remove("show");
-        });
-
-        elements.saveSupabaseConfigBtn.addEventListener("click", () => {
-            const url = elements.supabaseUrlInput.value;
-            const key = elements.supabaseKeyInput.value;
-            if (!url || !key) {
-                alert("Por favor, preencha a URL e a Anon Key do seu projeto no Supabase.");
-                return;
-            }
-            if (window.FirebaseBackend && window.FirebaseBackend.saveSupabaseConfig(url, key)) {
-                alert("✅ Conexão com o Supabase salva!");
-                elements.supabaseConfigModal.classList.remove("show");
-                checkUserSession();
-            } else {
-                alert("Erro ao validar credenciais. Verifique a URL e a Chave.");
-            }
-        });
-
-        elements.submitLoginBtn.addEventListener("click", async () => {
-            const email = elements.authEmail.value.trim();
-            const password = elements.authPassword.value.trim();
-            if (!email || !password) {
-                alert("Preencha o e-mail e a senha.");
-                return;
-            }
-            try {
-                elements.submitLoginBtn.innerText = "Entrando...";
-                await window.FirebaseBackend.signInUser(email, password);
-                elements.authModal.classList.remove("show");
-                alert("🎉 Login efetuado com sucesso!");
-                checkUserSession();
-            } catch (err) {
-                alert("Erro no login: " + (err.message || err));
-            } finally {
-                elements.submitLoginBtn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Entrar na Conta';
-            }
-        });
-
-        elements.submitSignupBtn.addEventListener("click", async () => {
-            const email = elements.authEmail.value.trim();
-            const password = elements.authPassword.value.trim();
-            if (!email || !password) {
-                alert("Preencha o e-mail e a senha.");
-                return;
-            }
-            try {
-                elements.submitSignupBtn.innerText = "Criando conta...";
-                await window.FirebaseBackend.signUpUser(email, password);
-                alert("🎉 Conta criada com sucesso!");
-                elements.authModal.classList.remove("show");
-                checkUserSession();
-            } catch (err) {
-                alert("Erro ao criar conta: " + (err.message || err));
-            } finally {
-                elements.submitSignupBtn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Criar Nova Conta';
-            }
-        });
-
+    // --- AUTENTICAÇÃO E LOGOUT ---
+    if (elements.logoutBtn) {
         elements.logoutBtn.addEventListener("click", async () => {
             if (confirm("Deseja sair da sua conta?")) {
                 await window.FirebaseBackend.signOutUser();

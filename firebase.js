@@ -198,6 +198,25 @@ async function syncLocalEntriesToCloud(entriesList) {
     return true;
 }
 
+// Apaga TODOS os lançamentos do usuário logado no Firestore
+async function clearAllCloudEntries() {
+    const user = await getCurrentUser();
+    if (!user || !db) return false;
+
+    const snapshot = await db.collection("users")
+        .doc(user.uid)
+        .collection("entries")
+        .get();
+
+    const batch = db.batch();
+    snapshot.forEach(doc => {
+        batch.delete(doc.ref);
+    });
+
+    await batch.commit();
+    return true;
+}
+
 // Torna os métodos acessíveis no escopo global
 window.FirebaseBackend = {
     initFirebase,
@@ -210,5 +229,6 @@ window.FirebaseBackend = {
     fetchCloudEntries,
     saveCloudEntry,
     deleteCloudEntry,
-    syncLocalEntriesToCloud
+    syncLocalEntriesToCloud,
+    clearAllCloudEntries
 };
