@@ -316,12 +316,27 @@ function setupEventListeners() {
         }
     });
 
-    // Reset da Troca de Óleo
+    // Reset / Registro da Troca de Óleo
     elements.resetOilBtn.addEventListener("click", () => {
-        if (confirm("Você realizou a troca de óleo? Isso zerará o marcador de Km rodados desde a última troca.")) {
+        let maxOdometer = 0;
+        appData.entries.forEach(entry => {
+            const val = entry.odometer || entry.km || 0;
+            if (val > maxOdometer) maxOdometer = val;
+        });
+
+        const defaultKm = maxOdometer > 0 ? maxOdometer : (appData.settings.lastOilChangeKm || 0);
+        const promptVal = prompt(
+            "Confirmar troca de óleo!\nDigite a quilometragem atual do painel da moto em que o óleo foi trocado:",
+            defaultKm > 0 ? defaultKm : ""
+        );
+
+        if (promptVal !== null && promptVal !== "") {
+            const kmVal = parseFloat(promptVal) || defaultKm;
+            appData.settings.lastOilChangeKm = kmVal;
             appData.settings.lastOilChangeDate = new Date().toISOString().split('T')[0];
             saveData();
             updateUI();
+            alert(`✅ Troca de óleo registrada no odômetro ${kmVal.toLocaleString('pt-BR')} km!\nO próximo alerta de troca será ativado em ${(kmVal + (appData.settings.oilChangeInterval || 1000)).toLocaleString('pt-BR')} km.`);
         }
     });
 
@@ -544,7 +559,7 @@ function saveEntry() {
     const date = elements.dateInput.value;
     const rides = parseFloat(elements.ridesInput.value) || 0;
     const tips = parseFloat(elements.tipsInput.value) || 0;
-    const km = parseFloat(elements.kmInput.value) || 0;
+    const rawKmInput = parseFloat(elements.kmInput.value) || 0;
     const hours = parseFloat(elements.hoursInput.value) || 0;
     const fuel = parseFloat(elements.fuelInput.value) || 0;
     const food = parseFloat(elements.foodInput.value) || 0;
@@ -552,9 +567,32 @@ function saveEntry() {
     const notes = elements.notesInput.value.trim();
 
     // Validação mínima
-    if (rides === 0 && tips === 0 && fuel === 0 && food === 0 && others === 0 && km === 0) {
-        alert("Por favor, preencha pelo menos um valor de ganho, gasto ou km rodado.");
+    if (rides === 0 && tips === 0 && fuel === 0 && food === 0 && others === 0 && rawKmInput === 0) {
+        alert("Por favor, preencha pelo menos um valor de ganho, gasto ou odômetro.");
         return;
+    }
+
+    // Calcula Odômetro x Km rodados no dia
+    // Busca o maior odômetro de registros anteriores a esta data
+    const previousEntries = appData.entries
+        .filter(entry => entry.date < date)
+        .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    const prevOdometer = previousEntries.length > 0 && previousEntries[0].odometer 
+        ? previousEntries[0].odometer 
+        : (previousEntries.length > 0 ? (previousEntries[0].km || 0) : 0);
+
+    let odometer = 0;
+    let kmDriven = 0;
+
+    if (rawKmInput >= 2000 || (prevOdometer > 0 && rawKmInput > prevOdometer)) {
+        // Usuário digitou o odômetro total do painel (ex: 57110)
+        odometer = rawKmInput;
+        kmDriven = prevOdometer > 0 && rawKmInput > prevOdometer ? (rawKmInput - prevOdometer) : 0;
+    } else {
+        // Usuário digitou os km rodados no dia (ex: 110)
+        kmDriven = rawKmInput;
+        odometer = prevOdometer > 0 ? (prevOdometer + rawKmInput) : rawKmInput;
     }
 
     const newEntry = {
@@ -562,7 +600,8 @@ function saveEntry() {
         date,
         rides,
         tips,
-        km,
+        km: kmDriven,
+        odometer: odometer,
         hours,
         fuel,
         food,
@@ -577,7 +616,8 @@ function saveEntry() {
             // Soma
             appData.entries[existingIndex].rides += rides;
             appData.entries[existingIndex].tips += tips;
-            appData.entries[existingIndex].km += km;
+            appData.entries[existingIndex].km += kmDriven;
+            appData.entries[existingIndex].odometer = Math.max(appData.entries[existingIndex].odometer || 0, odometer);
             appData.entries[existingIndex].hours += hours;
             appData.entries[existingIndex].fuel += fuel;
             appData.entries[existingIndex].food += food;
@@ -691,35 +731,52 @@ function getFilteredEntries() {
     return appData.entries.filter(entry => new Date(entry.date) >= limitDate);
 }
 
-// Atualiza o Widget de Óleo (Km desde a última troca)
+// Atualiza o Widget de Óleo (Baseado no Odômetro e intervalo configurado ex: 1000 km)
 function updateOilWidget() {
-    const interval = appData.settings.oilChangeInterval;
-    const lastResetDate = appData.settings.lastOilChangeDate;
+    const interval = appData.settings.oilChangeInterval || 1000;
     
-    // Soma os Km rodados após a data de reset
-    let kmSinceLastChange = 0;
+    // Encontra o odômetro máximo atual registrado
+    let currentOdometer = 0;
     appData.entries.forEach(entry => {
-        if (!lastResetDate || entry.date >= lastResetDate) {
-            kmSinceLastChange += entry.km;
+        const val = entry.odometer || entry.km || 0;
+        if (val > currentOdometer) {
+            currentOdometer = val;
         }
     });
 
+    // Se o odômetro da última troca ainda não existe, define como o odômetro atual
+    if (!appData.settings.lastOilChangeKm && currentOdometer > 0) {
+        appData.settings.lastOilChangeKm = currentOdometer;
+        saveData();
+    }
+
+    const lastOilKm = appData.settings.lastOilChangeKm || 0;
+    const kmWithCurrentOil = currentOdometer >= lastOilKm ? (currentOdometer - lastOilKm) : 0;
+
     // Calcula porcentagem da barra
-    const percentage = Math.min(100, (kmSinceLastChange / interval) * 100);
+    const percentage = Math.min(100, (kmWithCurrentOil / interval) * 100);
     elements.oilProgress.style.width = `${percentage}%`;
-    elements.oilKmText.innerText = `${kmSinceLastChange.toFixed(0)} / ${interval} km rodados`;
+
+    if (currentOdometer > 0 && lastOilKm > 0) {
+        elements.oilKmText.innerText = `${kmWithCurrentOil.toFixed(0)} / ${interval} km (Painel: ${currentOdometer.toLocaleString('pt-BR')} km)`;
+    } else {
+        elements.oilKmText.innerText = `${kmWithCurrentOil.toFixed(0)} / ${interval} km rodados`;
+    }
 
     // Atualiza status do badge
-    if (kmSinceLastChange >= interval) {
-        elements.oilStatusText.innerText = "Trocar Óleo!";
+    if (kmWithCurrentOil >= interval) {
+        const overflow = kmWithCurrentOil - interval;
+        elements.oilStatusText.innerText = overflow > 0 ? `Trocar Óleo! (+${overflow.toFixed(0)}km)` : "Trocar Óleo!";
         elements.oilStatusText.className = "status-badge red";
         elements.oilProgress.style.backgroundColor = "var(--accent-red)";
-    } else if (kmSinceLastChange >= interval * 0.8) {
-        elements.oilStatusText.innerText = "Atenção";
+    } else if (kmWithCurrentOil >= interval * 0.8) {
+        const remaining = interval - kmWithCurrentOil;
+        elements.oilStatusText.innerText = `Atenção (Falta ${remaining.toFixed(0)}km)`;
         elements.oilStatusText.className = "status-badge yellow";
         elements.oilProgress.style.backgroundColor = "var(--accent-yellow)";
     } else {
-        elements.oilStatusText.innerText = "Tudo OK";
+        const remaining = interval - kmWithCurrentOil;
+        elements.oilStatusText.innerText = `Tudo OK (Falta ${remaining.toFixed(0)}km)`;
         elements.oilStatusText.className = "status-badge green";
         elements.oilProgress.style.backgroundColor = "var(--accent-blue)";
     }
@@ -766,10 +823,14 @@ function renderHistoryTable(entriesList) {
         const profit = revenue - expenses;
         const efficiency = entry.km > 0 ? `R$ ${(revenue / entry.km).toFixed(2)}/km` : 'N/A';
 
+        const kmDisplay = entry.odometer && entry.odometer > entry.km
+            ? `${entry.km.toFixed(1)} km<br><small style="color: var(--text-muted); font-size: 0.72rem;">Painel: ${entry.odometer.toLocaleString('pt-BR')} km</small>`
+            : `${entry.km.toFixed(1)} km`;
+
         const row = document.createElement("tr");
         row.innerHTML = `
             <td style="font-weight: 500;">${formatDateString(entry.date)}</td>
-            <td>${entry.km.toFixed(1)} km</td>
+            <td>${kmDisplay}</td>
             <td style="color: var(--accent-green); font-weight: 500;">${formatCurrency(revenue)}</td>
             <td style="color: var(--accent-red);">${formatCurrency(expenses)}</td>
             <td style="font-weight: 600; color: ${profit >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'}">
@@ -797,6 +858,7 @@ function showDetailsEntry(id) {
     const totalRevenue = entry.rides + entry.tips;
     const totalExpenses = entry.fuel + entry.food + entry.others;
     const netProfit = totalRevenue - totalExpenses;
+    const odometerText = entry.odometer ? ` (Painel: ${entry.odometer.toLocaleString('pt-BR')} km)` : '';
 
     const detailText = `
 📅 DETALHES DO DIA ${formatDateString(entry.date)}
@@ -814,7 +876,7 @@ function showDetailsEntry(id) {
 
 📊 RESUMO:
 - Lucro Líquido: ${formatCurrency(netProfit)}
-- Km Rodados: ${entry.km.toFixed(1)} km
+- Km Rodados: ${entry.km.toFixed(1)} km${odometerText}
 - Horas Trabalhadas: ${entry.hours} h
 - Observações: ${entry.notes || 'Nenhuma'}
     `.trim();
