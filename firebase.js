@@ -1,14 +1,17 @@
 // Configuração do Firebase Client
 // Pode ser configurado dinamicamente ou pré-preenchido
 
-let firebaseConfig = JSON.parse(localStorage.getItem("controle99_firebase_config")) || {
-    apiKey: "AIzaSy_REPLACE_WITH_YOUR_KEY",
-    authDomain: "controle99.firebaseapp.com",
-    projectId: "controle99",
-    storageBucket: "controle99.appspot.com",
-    messagingSenderId: "1234567890",
-    appId: "1:1234567890:web:abcdef123456"
+const realFirebaseConfig = {
+    apiKey: "AIzaSyBG2GDFU8xb_kw2zhqZ90vNteciXolF4r4",
+    authDomain: "controle99-cd38b.firebaseapp.com",
+    projectId: "controle99-cd38b",
+    storageBucket: "controle99-cd38b.firebasestorage.app",
+    messagingSenderId: "776197687655",
+    appId: "1:776197687655:web:5e0f88e048b3061132c7c2",
+    measurementId: "G-37CSV9D457"
 };
+
+let firebaseConfig = JSON.parse(localStorage.getItem("controle99_firebase_config")) || realFirebaseConfig;
 
 let db = null;
 let auth = null;
