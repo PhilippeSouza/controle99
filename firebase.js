@@ -2,7 +2,7 @@
 // Pode ser configurado dinamicamente ou pré-preenchido
 
 const firebaseConfig = {
-    apiKey: "AIzaSyBG2GDFU8xb_kw2zhqZ9OvNteciXolF4r4",
+    apiKey: "AIzaSyAFs9CUZhIyZdZXE0R70VsOF2hQTd24ytM",
     authDomain: "controle99-cd38b.firebaseapp.com",
     projectId: "controle99-cd38b",
     storageBucket: "controle99-cd38b.firebasestorage.app",
