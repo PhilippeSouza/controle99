@@ -2,13 +2,13 @@
 // Pode ser configurado dinamicamente ou pré-preenchido
 
 const firebaseConfig = {
-    apiKey: "AIzaSyBG2GDFU8xb_kw2zhqZ90vNteciXolF4r4",
+    apiKey: "AIzaSyBG2GDFU8xb_kw2zhqZ9OvNteciXolF4r4",
     authDomain: "controle99-cd38b.firebaseapp.com",
     projectId: "controle99-cd38b",
     storageBucket: "controle99-cd38b.firebasestorage.app",
     messagingSenderId: "776197687655",
-    appId: "1:776197687655:web:5e0f88e048b3061132c7c2",
-    measurementId: "G-37CSV9D457"
+    appId: "1:776197687655:web:b4655293fec2a44932c7c2",
+    measurementId: "G-BT5GBB1H1H"
 };
 
 // Limpa chaves antigas de teste salvas no navegador
