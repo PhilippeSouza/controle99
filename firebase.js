@@ -1,7 +1,7 @@
 // Configuração do Firebase Client
 // Pode ser configurado dinamicamente ou pré-preenchido
 
-const realFirebaseConfig = {
+const firebaseConfig = {
     apiKey: "AIzaSyBG2GDFU8xb_kw2zhqZ90vNteciXolF4r4",
     authDomain: "controle99-cd38b.firebaseapp.com",
     projectId: "controle99-cd38b",
@@ -11,7 +11,8 @@ const realFirebaseConfig = {
     measurementId: "G-37CSV9D457"
 };
 
-let firebaseConfig = JSON.parse(localStorage.getItem("controle99_firebase_config")) || realFirebaseConfig;
+// Limpa chaves antigas de teste salvas no navegador
+try { localStorage.removeItem("controle99_firebase_config"); } catch(e) {}
 
 let db = null;
 let auth = null;
