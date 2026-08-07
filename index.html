@@ -17,8 +17,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Chart.js para Gráficos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Supabase JS SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Firebase SDK (Auth + Firestore) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <!-- FontAwesome para ícones -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
@@ -422,29 +424,7 @@
         </div>
     </div>
 
-    <!-- Modal de Configuração de Chaves do Supabase -->
-    <div id="supabase-config-modal" class="modal">
-        <div class="modal-content card" style="max-width: 480px;">
-            <h3><i class="fa-solid fa-database"></i> Conectar Projeto Supabase</h3>
-            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
-                Insira as credenciais da API do seu projeto no Supabase (Project Settings > API):
-            </p>
-            <div class="input-group full-width" style="margin-bottom: 0.75rem;">
-                <label for="supabase-url-input">Project URL (SUPABASE_URL)</label>
-                <input type="url" id="supabase-url-input" placeholder="https://xyzcompany.supabase.co">
-            </div>
-            <div class="input-group full-width" style="margin-bottom: 1rem;">
-                <label for="supabase-key-input">API Anon Key (SUPABASE_ANON_KEY)</label>
-                <input type="text" id="supabase-key-input" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">
-            </div>
-            <div class="modal-actions">
-                <button id="close-supabase-config-modal-btn" class="btn-secondary">Cancelar</button>
-                <button id="save-supabase-config-btn" class="btn-primary">Salvar Conexão</button>
-            </div>
-        </div>
-    </div>
-
-    <script src="supabase.js"></script>
+    <script src="firebase.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

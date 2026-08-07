@@ -126,7 +126,7 @@ function setupLoginScreen() {
         try {
             loginEnterBtn.innerText = "Entrando...";
             loginEnterBtn.disabled = true;
-            await window.SupabaseBackend.signInUser(email, password);
+            await window.FirebaseBackend.signInUser(email, password);
             showLoginError("");
             await enterApp();
         } catch (err) {
@@ -151,8 +151,8 @@ function setupLoginScreen() {
         try {
             loginCreateBtn.innerText = "Criando conta...";
             loginCreateBtn.disabled = true;
-            await window.SupabaseBackend.signUpUser(email, password);
-            await window.SupabaseBackend.signInUser(email, password);
+            await window.FirebaseBackend.signUpUser(email, password);
+            await window.FirebaseBackend.signInUser(email, password);
             showLoginError("");
             await enterApp();
         } catch (err) {
@@ -174,12 +174,12 @@ function showLoginError(msg) {
 
 // Checa se o usuário já tem sessão ativa
 async function checkLoginState() {
-    if (!window.SupabaseBackend) {
+    if (!window.FirebaseBackend) {
         showLoginScreen();
         return;
     }
     try {
-        const user = await window.SupabaseBackend.getCurrentUser();
+        const user = await window.FirebaseBackend.getCurrentUser();
         if (user) {
             await enterApp();
         } else {
@@ -210,7 +210,7 @@ async function enterApp() {
 
     // Atualiza o badge do usuário no cabeçalho
     try {
-        const user = await window.SupabaseBackend.getCurrentUser();
+        const user = await window.FirebaseBackend.getCurrentUser();
         if (user) {
             if (elements.userBadge) elements.userBadge.style.display = "inline-flex";
             if (elements.userEmailText) elements.userEmailText.innerText = user.email;
@@ -228,14 +228,14 @@ async function enterApp() {
 async function loadDataFromCloud() {
     let currentUser = null;
     try {
-        currentUser = await window.SupabaseBackend.getCurrentUser();
+        currentUser = await window.FirebaseBackend.getCurrentUser();
     } catch(e) {}
 
     const userEmail = currentUser && currentUser.email ? currentUser.email.toLowerCase().trim() : "";
 
     // 1. Tenta carregar os lançamentos existentes do Supabase
     try {
-        const cloudEntries = await window.SupabaseBackend.fetchCloudEntries();
+        const cloudEntries = await window.FirebaseBackend.fetchCloudEntries();
         if (cloudEntries && cloudEntries.length > 0) {
             appData.entries = cloudEntries.map(entry => ({
                 ...entry,
@@ -276,7 +276,7 @@ async function loadDataFromCloud() {
 
                 // Sincroniza em segundo plano sem travar nem zerar a tela
                 if (currentUser) {
-                    window.SupabaseBackend.syncLocalEntriesToCloud(data.entries).catch(err => {
+                    window.FirebaseBackend.syncLocalEntriesToCloud(data.entries).catch(err => {
                         console.log("Sincronização em segundo plano:", err);
                     });
                 }
@@ -514,7 +514,7 @@ function setupEventListeners() {
                 alert("Por favor, preencha a URL e a Anon Key do seu projeto no Supabase.");
                 return;
             }
-            if (window.SupabaseBackend && window.SupabaseBackend.saveSupabaseConfig(url, key)) {
+            if (window.FirebaseBackend && window.FirebaseBackend.saveSupabaseConfig(url, key)) {
                 alert("✅ Conexão com o Supabase salva!");
                 elements.supabaseConfigModal.classList.remove("show");
                 checkUserSession();
@@ -532,7 +532,7 @@ function setupEventListeners() {
             }
             try {
                 elements.submitLoginBtn.innerText = "Entrando...";
-                await window.SupabaseBackend.signInUser(email, password);
+                await window.FirebaseBackend.signInUser(email, password);
                 elements.authModal.classList.remove("show");
                 alert("🎉 Login efetuado com sucesso!");
                 checkUserSession();
@@ -552,7 +552,7 @@ function setupEventListeners() {
             }
             try {
                 elements.submitSignupBtn.innerText = "Criando conta...";
-                await window.SupabaseBackend.signUpUser(email, password);
+                await window.FirebaseBackend.signUpUser(email, password);
                 alert("🎉 Conta criada com sucesso!");
                 elements.authModal.classList.remove("show");
                 checkUserSession();
@@ -565,7 +565,7 @@ function setupEventListeners() {
 
         elements.logoutBtn.addEventListener("click", async () => {
             if (confirm("Deseja sair da sua conta?")) {
-                await window.SupabaseBackend.signOutUser();
+                await window.FirebaseBackend.signOutUser();
                 localStorage.removeItem("controle99_data");
                 appData = { entries: [], settings: { dailyGoal: 150, oilChangeInterval: 1000, lastOilChangeDate: "" }, theme: "dark" };
                 showLoginScreen();
@@ -690,8 +690,8 @@ function saveEntry() {
 
     // Sincroniza com a nuvem (Supabase) se estiver logado
     const targetEntry = existingIndex !== -1 ? appData.entries[existingIndex] : newEntry;
-    if (window.SupabaseBackend) {
-        window.SupabaseBackend.saveCloudEntry(targetEntry).catch(e => console.log("Offline / Sync pendente:", e));
+    if (window.FirebaseBackend) {
+        window.FirebaseBackend.saveCloudEntry(targetEntry).catch(e => console.log("Offline / Sync pendente:", e));
     }
 
     saveData();
@@ -708,8 +708,8 @@ function deleteEntry(id) {
         appData.entries = appData.entries.filter(entry => entry.id !== id);
         saveData();
         updateUI();
-        if (window.SupabaseBackend) {
-            window.SupabaseBackend.deleteCloudEntry(id).catch(e => console.log("Offline / Sync delete pendente:", e));
+        if (window.FirebaseBackend) {
+            window.FirebaseBackend.deleteCloudEntry(id).catch(e => console.log("Offline / Sync delete pendente:", e));
         }
     }
 }
