@@ -400,42 +400,6 @@
         </div>
     </div>
 
-    <!-- Modal de Autenticação / Login (Nuvem) -->
-    <div id="auth-modal" class="modal">
-        <div class="modal-content card" style="max-width: 420px;">
-            <h3><i class="fa-solid fa-cloud-arrow-up"></i> Entrar no controle99</h3>
-            <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem;">
-                Sincronize seus ganhos e gastos em tempo real no celular e no computador!
-            </p>
-            <div id="auth-form">
-                <div class="input-group full-width" style="margin-bottom: 0.75rem;">
-                    <label for="auth-email">Seu E-mail</label>
-                    <input type="email" id="auth-email" placeholder="seuemail@exemplo.com" required>
-                </div>
-                <div class="input-group full-width" style="margin-bottom: 1rem;">
-                    <label for="auth-password">Sua Senha</label>
-                    <input type="password" id="auth-password" placeholder="Sua senha secreta" required>
-                </div>
-                <div class="modal-actions" style="flex-direction: column; gap: 0.5rem;">
-                    <button id="submit-login-btn" class="btn-primary" style="width: 100%;">
-                        <i class="fa-solid fa-right-to-bracket"></i> Entrar na Conta
-                    </button>
-                    <button id="submit-signup-btn" class="btn-secondary" style="width: 100%;">
-                        <i class="fa-solid fa-user-plus"></i> Criar Nova Conta
-                    </button>
-                </div>
-                <div style="margin-top: 1rem; text-align: center;">
-                    <button id="open-config-btn" class="btn-text" style="font-size: 0.8rem; color: var(--text-muted);">
-                        <i class="fa-solid fa-gear"></i> Configurar Chaves do Supabase
-                    </button>
-                </div>
-            </div>
-            <div class="modal-actions" style="margin-top: 1rem;">
-                <button id="close-auth-modal-btn" class="btn-secondary">Fechar</button>
-            </div>
-        </div>
-    </div>
-
     <script src="firebase.js"></script>
     <script src="app.js"></script>
 </body>

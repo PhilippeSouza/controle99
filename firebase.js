@@ -1,7 +1,7 @@
 // Configuração do Firebase Client
 // Pode ser configurado dinamicamente ou pré-preenchido
 
-const firebaseConfig = {
+let firebaseConfig = {
     apiKey: "AIzaSyAFs9CUZhIyZdZXE0R70VsOF2hQTd24ytM",
     authDomain: "controle99-cd38b.firebaseapp.com",
     projectId: "controle99-cd38b",
@@ -25,6 +25,13 @@ function initFirebase() {
             }
             auth = firebase.auth();
             db = firebase.firestore();
+
+            // Ativa persistência local no Auth (mantém conectado no iOS/PWA)
+            if (auth.setPersistence) {
+                auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(err => {
+                    console.log("Aviso persistência auth:", err);
+                });
+            }
 
             // Ativa persistência offline para PWA (funciona sem internet)
             db.enablePersistence({ synchronizeTabs: true }).catch(err => {
@@ -51,20 +58,40 @@ initFirebase();
 
 // --- MÉTODOS DE AUTENTICAÇÃO ---
 
+// Processa o retorno caso o login tenha sido feito por redirecionamento
+async function handleRedirectResult() {
+    if (!auth) return null;
+    try {
+        const result = await auth.getRedirectResult();
+        if (result && result.user) {
+            return result.user;
+        }
+    } catch (error) {
+        console.warn("Aviso ao processar redirect do Google:", error);
+    }
+    return null;
+}
+
 async function signInWithGoogle() {
     if (!auth) throw new Error("Firebase Auth não está configurado.");
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.addScope('email');
     provider.addScope('profile');
+    provider.setCustomParameters({ prompt: 'select_account' });
+
     try {
         const result = await auth.signInWithPopup(provider);
         return result.user;
     } catch (err) {
-        if (err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user') {
-            await auth.signInWithRedirect(provider);
-        } else {
-            throw err;
+        if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+            throw new Error("Janela de login fechada.");
         }
+        if (err.code === 'auth/popup-blocked') {
+            // Em navegadores móveis onde pop-up é estritamente bloqueado, tenta redirect
+            await auth.signInWithRedirect(provider);
+            return null;
+        }
+        throw err;
     }
 }
 
@@ -118,6 +145,7 @@ async function fetchCloudEntries() {
                 rides: parseFloat(data.rides) || 0,
                 tips: parseFloat(data.tips) || 0,
                 km: parseFloat(data.km) || 0,
+                odometer: parseFloat(data.odometer) || 0,
                 hours: parseFloat(data.hours) || 0,
                 fuel: parseFloat(data.fuel) || 0,
                 food: parseFloat(data.food) || 0,
@@ -224,6 +252,7 @@ window.FirebaseBackend = {
     initFirebase,
     saveFirebaseConfig,
     signInWithGoogle,
+    handleRedirectResult,
     signUpUser,
     signInUser,
     signOutUser,

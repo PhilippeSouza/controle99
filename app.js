@@ -73,25 +73,11 @@ const elements = {
     closeImportModalBtn: document.getElementById("close-import-modal-btn"),
     processImportBtn: document.getElementById("process-import-btn"),
 
-    // Auth & Supabase UI
+    // Auth & Usuário
     authBtn: document.getElementById("auth-btn"),
     userBadge: document.getElementById("user-badge"),
     userEmailText: document.getElementById("user-email-text"),
-    logoutBtn: document.getElementById("logout-btn"),
-
-    authModal: document.getElementById("auth-modal"),
-    authEmail: document.getElementById("auth-email"),
-    authPassword: document.getElementById("auth-password"),
-    submitLoginBtn: document.getElementById("submit-login-btn"),
-    submitSignupBtn: document.getElementById("submit-signup-btn"),
-    openConfigBtn: document.getElementById("open-config-btn"),
-    closeAuthModalBtn: document.getElementById("close-auth-modal-btn"),
-
-    supabaseConfigModal: document.getElementById("supabase-config-modal"),
-    supabaseUrlInput: document.getElementById("supabase-url-input"),
-    supabaseKeyInput: document.getElementById("supabase-key-input"),
-    saveSupabaseConfigBtn: document.getElementById("save-supabase-config-btn"),
-    closeSupabaseConfigModalBtn: document.getElementById("close-supabase-config-modal-btn")
+    logoutBtn: document.getElementById("logout-btn")
 };
 
 // Variável para instância do Gráfico
@@ -116,19 +102,26 @@ function setupLoginScreen() {
     const loginPassword = document.getElementById("login-password");
 
     if (loginGoogleBtn) {
-        loginGoogleBtn.addEventListener("click", async () => {
-            try {
-                loginGoogleBtn.innerText = "Conectando ao Google...";
-                loginGoogleBtn.disabled = true;
-                await window.FirebaseBackend.signInWithGoogle();
-                showLoginError("");
-                await enterApp();
-            } catch (err) {
-                showLoginError("Erro no login com Google: " + (err.message || err));
-            } finally {
-                loginGoogleBtn.innerHTML = '<i class="fa-brands fa-google"></i> Entrar com o Google';
-                loginGoogleBtn.disabled = false;
-            }
+        loginGoogleBtn.addEventListener("click", () => {
+            loginGoogleBtn.innerText = "Conectando ao Google...";
+            loginGoogleBtn.disabled = true;
+            showLoginError("");
+
+            // Executa imediatamente mantendo o contexto de clique do usuário no iOS Safari
+            window.FirebaseBackend.signInWithGoogle()
+                .then(async (user) => {
+                    if (user) {
+                        showLoginError("");
+                        await enterApp();
+                    }
+                })
+                .catch(err => {
+                    showLoginError(err.message || "Erro no login com Google.");
+                })
+                .finally(() => {
+                    loginGoogleBtn.innerHTML = '<i class="fa-brands fa-google"></i> Entrar com o Google';
+                    loginGoogleBtn.disabled = false;
+                });
         });
     }
 
@@ -197,6 +190,15 @@ async function checkLoginState() {
         return;
     }
     try {
+        // Verifica se o usuário retornou de um redirecionamento de login do Google
+        if (window.FirebaseBackend.handleRedirectResult) {
+            const redirectUser = await window.FirebaseBackend.handleRedirectResult();
+            if (redirectUser) {
+                await enterApp();
+                return;
+            }
+        }
+
         const user = await window.FirebaseBackend.getCurrentUser();
         if (user) {
             await enterApp();
@@ -252,6 +254,7 @@ async function loadDataFromCloud() {
                 rides: parseFloat(entry.rides) || 0,
                 tips: parseFloat(entry.tips) || 0,
                 km: parseFloat(entry.km) || 0,
+                odometer: parseFloat(entry.odometer) || 0,
                 hours: parseFloat(entry.hours) || 0,
                 fuel: parseFloat(entry.fuel) || 0,
                 food: parseFloat(entry.food) || 0,
@@ -271,13 +274,17 @@ async function loadDataFromCloud() {
     updateUI();
 }
 
+// Retorna a data no fuso horário local no formato YYYY-MM-DD
+function getLocalDateString(date = new Date()) {
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+}
+
 // Define a data padrão do formulário como "hoje"
 function setDefaultDate() {
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    elements.dateInput.value = `${yyyy}-${mm}-${dd}`;
+    elements.dateInput.value = getLocalDateString();
 }
 
 // Salva os dados no LocalStorage
@@ -333,7 +340,7 @@ function setupEventListeners() {
         if (promptVal !== null && promptVal !== "") {
             const kmVal = parseFloat(promptVal) || defaultKm;
             appData.settings.lastOilChangeKm = kmVal;
-            appData.settings.lastOilChangeDate = new Date().toISOString().split('T')[0];
+            appData.settings.lastOilChangeDate = getLocalDateString();
             saveData();
             updateUI();
             alert(`✅ Troca de óleo registrada no odômetro ${kmVal.toLocaleString('pt-BR')} km!\nO próximo alerta de troca será ativado em ${(kmVal + (appData.settings.oilChangeInterval || 1000)).toLocaleString('pt-BR')} km.`);
@@ -391,7 +398,7 @@ function setupEventListeners() {
     // 1. Compartilhar nativo (WhatsApp, Arquivos, Notas, etc.)
     elements.backupShareBtn.addEventListener("click", async () => {
         const jsonString = JSON.stringify(appData, null, 2);
-        const fileName = `controle99_backup_${new Date().toISOString().split('T')[0]}.json`;
+        const fileName = `controle99_backup_${getLocalDateString()}.json`;
 
         if (navigator.share) {
             try {
@@ -430,7 +437,7 @@ function setupEventListeners() {
     elements.backupDownloadBtn.addEventListener("click", () => {
         const jsonString = JSON.stringify(appData, null, 2);
         const blob = new Blob([jsonString], { type: 'application/json' });
-        const fileName = `controle99_backup_${new Date().toISOString().split('T')[0]}.json`;
+        const fileName = `controle99_backup_${getLocalDateString()}.json`;
         
         const url = URL.createObjectURL(blob);
         const downloadAnchor = document.createElement('a');
@@ -784,7 +791,7 @@ function updateOilWidget() {
 
 // Atualiza o Widget de Metas (Baseado nos ganhos de HOJE)
 function updateGoalWidget() {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateString();
     const todayEntry = appData.entries.find(entry => entry.date === todayStr);
     
     const todayRevenue = todayEntry ? (todayEntry.rides + todayEntry.tips) : 0;
