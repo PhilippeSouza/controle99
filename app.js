@@ -4,6 +4,7 @@ let appData = {
     settings: {
         dailyGoal: 150,
         oilChangeInterval: 1000,
+        lastOilChangeKm: 0,
         lastOilChangeDate: ""
     },
     theme: "dark"
@@ -36,6 +37,8 @@ const elements = {
     oilProgress: document.getElementById("oil-progress"),
     oilKmText: document.getElementById("oil-km-text"),
     oilStatusText: document.getElementById("oil-status-text"),
+    oilLastKm: document.getElementById("oil-last-km"),
+    oilNextKm: document.getElementById("oil-next-km"),
     resetOilBtn: document.getElementById("reset-oil-btn"),
     
     goalProgress: document.getElementById("goal-progress"),
@@ -86,8 +89,36 @@ let financeChart = null;
 // Variável para controle de inicialização única de listeners
 let isEventListenersSetup = false;
 
+// Carrega dados e configurações salvos no navegador (localStorage)
+function loadLocalData() {
+    try {
+        const saved = localStorage.getItem("controle99_data");
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed.settings) {
+                appData.settings = {
+                    ...appData.settings,
+                    ...parsed.settings,
+                    dailyGoal: parseFloat(parsed.settings.dailyGoal) || 150,
+                    oilChangeInterval: parseInt(parsed.settings.oilChangeInterval) || 1000,
+                    lastOilChangeKm: parseFloat(parsed.settings.lastOilChangeKm) || 0
+                };
+            }
+            if (parsed.theme) {
+                appData.theme = parsed.theme;
+            }
+            if (Array.isArray(parsed.entries) && parsed.entries.length > 0 && appData.entries.length === 0) {
+                appData.entries = parsed.entries;
+            }
+        }
+    } catch (e) {
+        console.warn("Aviso ao carregar dados do localStorage:", e);
+    }
+}
+
 // Inicialização
 document.addEventListener("DOMContentLoaded", () => {
+    loadLocalData();
     initTheme();
     setupLoginScreen();
     checkLoginState();
@@ -244,22 +275,40 @@ async function enterApp() {
     initTheme();
 }
 
-// Carrega dados do Firebase (Firestore) prioritariamente
+// Carrega dados do Firebase (Firestore) e sincroniza configurações
 async function loadDataFromCloud() {
+    loadLocalData();
+
     try {
-        const cloudEntries = await window.FirebaseBackend.fetchCloudEntries();
-        if (cloudEntries && cloudEntries.length > 0) {
-            appData.entries = cloudEntries.map(entry => ({
-                ...entry,
-                rides: parseFloat(entry.rides) || 0,
-                tips: parseFloat(entry.tips) || 0,
-                km: parseFloat(entry.km) || 0,
-                odometer: parseFloat(entry.odometer) || 0,
-                hours: parseFloat(entry.hours) || 0,
-                fuel: parseFloat(entry.fuel) || 0,
-                food: parseFloat(entry.food) || 0,
-                others: parseFloat(entry.others) || 0
-            }));
+        if (window.FirebaseBackend) {
+            // Sincroniza configurações da nuvem (meta diária, odômetro da troca de óleo, etc.)
+            if (window.FirebaseBackend.fetchCloudSettings) {
+                const cloudSettings = await window.FirebaseBackend.fetchCloudSettings();
+                if (cloudSettings) {
+                    appData.settings = {
+                        ...appData.settings,
+                        ...cloudSettings,
+                        dailyGoal: parseFloat(cloudSettings.dailyGoal) || appData.settings.dailyGoal,
+                        oilChangeInterval: parseInt(cloudSettings.oilChangeInterval) || appData.settings.oilChangeInterval,
+                        lastOilChangeKm: parseFloat(cloudSettings.lastOilChangeKm) || appData.settings.lastOilChangeKm
+                    };
+                }
+            }
+
+            const cloudEntries = await window.FirebaseBackend.fetchCloudEntries();
+            if (cloudEntries && cloudEntries.length > 0) {
+                appData.entries = cloudEntries.map(entry => ({
+                    ...entry,
+                    rides: parseFloat(entry.rides) || 0,
+                    tips: parseFloat(entry.tips) || 0,
+                    km: parseFloat(entry.km) || 0,
+                    odometer: parseFloat(entry.odometer) || 0,
+                    hours: parseFloat(entry.hours) || 0,
+                    fuel: parseFloat(entry.fuel) || 0,
+                    food: parseFloat(entry.food) || 0,
+                    others: parseFloat(entry.others) || 0
+                }));
+            }
             saveData();
             updateUI();
             return;
@@ -268,8 +317,6 @@ async function loadDataFromCloud() {
         console.log("Aviso ao buscar dados da nuvem:", err);
     }
     
-    // Se a nuvem estiver vazia (conta nova ou após zerar o histórico), mantém 100% zerado
-    appData.entries = [];
     saveData();
     updateUI();
 }
@@ -327,23 +374,27 @@ function setupEventListeners() {
     elements.resetOilBtn.addEventListener("click", () => {
         let maxOdometer = 0;
         appData.entries.forEach(entry => {
-            const val = entry.odometer || entry.km || 0;
+            const val = parseFloat(entry.odometer) || 0;
             if (val > maxOdometer) maxOdometer = val;
         });
 
-        const defaultKm = maxOdometer > 0 ? maxOdometer : (appData.settings.lastOilChangeKm || 0);
+        const currentKnownKm = maxOdometer > 0 ? maxOdometer : (parseFloat(appData.settings.lastOilChangeKm) || 0);
         const promptVal = prompt(
-            "Confirmar troca de óleo!\nDigite a quilometragem atual do painel da moto em que o óleo foi trocado:",
-            defaultKm > 0 ? defaultKm : ""
+            "Registrar troca de óleo!\nDigite a quilometragem marcada no painel da moto no momento da troca:",
+            currentKnownKm > 0 ? currentKnownKm : ""
         );
 
         if (promptVal !== null && promptVal !== "") {
-            const kmVal = parseFloat(promptVal) || defaultKm;
+            const kmVal = parseFloat(String(promptVal).replace(',', '.')) || currentKnownKm;
             appData.settings.lastOilChangeKm = kmVal;
             appData.settings.lastOilChangeDate = getLocalDateString();
             saveData();
+            if (window.FirebaseBackend && window.FirebaseBackend.saveCloudSettings) {
+                window.FirebaseBackend.saveCloudSettings(appData.settings);
+            }
             updateUI();
-            alert(`✅ Troca de óleo registrada no odômetro ${kmVal.toLocaleString('pt-BR')} km!\nO próximo alerta de troca será ativado em ${(kmVal + (appData.settings.oilChangeInterval || 1000)).toLocaleString('pt-BR')} km.`);
+            const nextChange = kmVal + (appData.settings.oilChangeInterval || 1000);
+            alert(`✅ Troca de óleo registrada no odômetro ${kmVal.toLocaleString('pt-BR')} km!\nO próximo alerta de troca será ativado em ${nextChange.toLocaleString('pt-BR')} km.`);
         }
     });
 
@@ -364,6 +415,9 @@ function setupEventListeners() {
         appData.settings.dailyGoal = goal;
         appData.settings.oilChangeInterval = oil;
         saveData();
+        if (window.FirebaseBackend && window.FirebaseBackend.saveCloudSettings) {
+            window.FirebaseBackend.saveCloudSettings(appData.settings);
+        }
         elements.goalModal.classList.remove("show");
         updateUI();
     });
@@ -587,13 +641,13 @@ function saveEntry() {
 
     const prevOdometer = previousEntries.length > 0 && previousEntries[0].odometer 
         ? previousEntries[0].odometer 
-        : (previousEntries.length > 0 ? (previousEntries[0].km || 0) : 0);
+        : (previousEntries.length > 0 ? (previousEntries[0].km || 0) : (parseFloat(appData.settings.lastOilChangeKm) || 0));
 
     let odometer = 0;
     let kmDriven = 0;
 
     if (rawKmInput >= 2000 || (prevOdometer > 0 && rawKmInput > prevOdometer)) {
-        // Usuário digitou o odômetro total do painel (ex: 57110)
+        // Usuário digitou o odômetro total do painel (ex: 57180)
         odometer = rawKmInput;
         kmDriven = prevOdometer > 0 && rawKmInput > prevOdometer ? (rawKmInput - prevOdometer) : 0;
     } else {
@@ -740,34 +794,52 @@ function getFilteredEntries() {
 
 // Atualiza o Widget de Óleo (Baseado no Odômetro e intervalo configurado ex: 1000 km)
 function updateOilWidget() {
-    const interval = appData.settings.oilChangeInterval || 1000;
+    const interval = parseInt(appData.settings.oilChangeInterval) || 1000;
+    const lastOilKm = parseFloat(appData.settings.lastOilChangeKm) || 0;
     
-    // Encontra o odômetro máximo atual registrado
-    let currentOdometer = 0;
+    // Encontra o odômetro máximo registrado nos lançamentos de corridas
+    let maxEntryOdometer = 0;
     appData.entries.forEach(entry => {
-        const val = entry.odometer || entry.km || 0;
-        if (val > currentOdometer) {
-            currentOdometer = val;
+        const val = parseFloat(entry.odometer) || 0;
+        if (val > maxEntryOdometer) {
+            maxEntryOdometer = val;
         }
     });
 
-    // Se o odômetro da última troca ainda não existe, define como o odômetro atual
+    // O odômetro atual do painel da moto é o maior entre os lançamentos e a troca informada
+    const currentOdometer = Math.max(maxEntryOdometer, lastOilKm);
+
+    // Se o odômetro da última troca ainda não existe mas há lançamentos, define como o odômetro atual
     if (!appData.settings.lastOilChangeKm && currentOdometer > 0) {
         appData.settings.lastOilChangeKm = currentOdometer;
         saveData();
     }
 
-    const lastOilKm = appData.settings.lastOilChangeKm || 0;
-    const kmWithCurrentOil = currentOdometer >= lastOilKm ? (currentOdometer - lastOilKm) : 0;
+    // Km rodados com o óleo atual
+    const effectiveLastOilKm = parseFloat(appData.settings.lastOilChangeKm) || 0;
+    const kmWithCurrentOil = (currentOdometer >= effectiveLastOilKm && effectiveLastOilKm > 0)
+        ? (currentOdometer - effectiveLastOilKm)
+        : (maxEntryOdometer > 0 ? maxEntryOdometer : 0);
+
+    const nextOilKm = effectiveLastOilKm > 0 ? (effectiveLastOilKm + interval) : interval;
 
     // Calcula porcentagem da barra
     const percentage = Math.min(100, (kmWithCurrentOil / interval) * 100);
     elements.oilProgress.style.width = `${percentage}%`;
 
-    if (currentOdometer > 0 && lastOilKm > 0) {
-        elements.oilKmText.innerText = `${kmWithCurrentOil.toFixed(0)} / ${interval} km (Painel: ${currentOdometer.toLocaleString('pt-BR')} km)`;
+    // Texto da barra
+    if (effectiveLastOilKm > 0) {
+        elements.oilKmText.innerText = `${kmWithCurrentOil.toFixed(0)} / ${interval} km rodados com este óleo`;
     } else {
         elements.oilKmText.innerText = `${kmWithCurrentOil.toFixed(0)} / ${interval} km rodados`;
+    }
+
+    // Subdetalhes exibindo odômetro da troca e da próxima troca
+    if (elements.oilLastKm) {
+        elements.oilLastKm.innerText = effectiveLastOilKm > 0 ? `${effectiveLastOilKm.toLocaleString('pt-BR')} km` : 'Não informado';
+    }
+    if (elements.oilNextKm) {
+        elements.oilNextKm.innerText = effectiveLastOilKm > 0 ? `${nextOilKm.toLocaleString('pt-BR')} km` : `${interval.toLocaleString('pt-BR')} km`;
     }
 
     // Atualiza status do badge

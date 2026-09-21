@@ -247,6 +247,42 @@ async function clearAllCloudEntries() {
     return true;
 }
 
+// Salva as configurações do usuário no Firestore (metas, troca de óleo, etc.)
+async function saveCloudSettings(settings) {
+    const user = await getCurrentUser();
+    if (!user || !db) return false;
+    try {
+        await db.collection("users").doc(user.uid).set({
+            settings: {
+                dailyGoal: parseFloat(settings.dailyGoal) || 150,
+                oilChangeInterval: parseInt(settings.oilChangeInterval) || 1000,
+                lastOilChangeKm: parseFloat(settings.lastOilChangeKm) || 0,
+                lastOilChangeDate: settings.lastOilChangeDate || ''
+            },
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        return true;
+    } catch (e) {
+        console.warn("Aviso ao salvar settings na nuvem:", e);
+        return false;
+    }
+}
+
+// Busca as configurações do usuário salvas no Firestore
+async function fetchCloudSettings() {
+    const user = await getCurrentUser();
+    if (!user || !db) return null;
+    try {
+        const doc = await db.collection("users").doc(user.uid).get();
+        if (doc.exists && doc.data() && doc.data().settings) {
+            return doc.data().settings;
+        }
+    } catch (e) {
+        console.warn("Aviso ao buscar settings da nuvem:", e);
+    }
+    return null;
+}
+
 // Torna os métodos acessíveis no escopo global
 window.FirebaseBackend = {
     initFirebase,
@@ -261,5 +297,7 @@ window.FirebaseBackend = {
     saveCloudEntry,
     deleteCloudEntry,
     syncLocalEntriesToCloud,
-    clearAllCloudEntries
+    clearAllCloudEntries,
+    saveCloudSettings,
+    fetchCloudSettings
 };

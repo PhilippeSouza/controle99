@@ -156,15 +156,19 @@
                 <div class="widget-card widget-oil">
                     <div class="widget-header">
                         <h4><i class="fa-solid fa-circle-exclamation"></i> Troca de Óleo</h4>
-                        <button id="reset-oil-btn" class="btn-text" title="Zerar Km após troca">Zerar</button>
+                        <button id="reset-oil-btn" class="btn-text" title="Registrar troca de óleo da moto">Registrar Troca</button>
                     </div>
                     <div class="widget-body">
                         <div class="progress-bar-container">
                             <div id="oil-progress" class="progress-bar" style="width: 0%"></div>
                         </div>
                         <div class="widget-details">
-                            <span id="oil-km-text">0 / 1000 km rodados</span>
+                            <span id="oil-km-text">0 / 1000 km rodados com este óleo</span>
                             <span id="oil-status-text" class="status-badge green">Tudo Ok</span>
+                        </div>
+                        <div class="oil-subdetails" style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.45rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.25rem;">
+                            <span>Troca feita em: <strong id="oil-last-km" style="color: var(--text-color);">-</strong></span>
+                            <span>Próxima troca: <strong id="oil-next-km" style="color: var(--accent-yellow);">-</strong></span>
                         </div>
                     </div>
                 </div>
