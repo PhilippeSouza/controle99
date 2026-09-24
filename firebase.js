@@ -87,12 +87,25 @@ async function signInWithGoogle() {
             throw new Error("Janela de login fechada.");
         }
         if (err.code === 'auth/popup-blocked') {
-            // Em navegadores móveis onde pop-up é estritamente bloqueado, tenta redirect
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+
+            if (isIOS || isStandalone) {
+                throw new Error("No iPhone (aplicativo na Tela de Início), a Apple bloqueia janelas do Google. Por favor, entre com seu E-mail e Senha abaixo.");
+            }
+
+            // Em navegadores desktop onde pop-up foi bloqueado, tenta redirect
             await auth.signInWithRedirect(provider);
             return null;
         }
         throw err;
     }
+}
+
+async function sendPasswordReset(email) {
+    if (!auth) throw new Error("Firebase Auth não está configurado.");
+    await auth.sendPasswordResetEmail(email);
+    return true;
 }
 
 async function signUpUser(email, password) {
@@ -299,5 +312,6 @@ window.FirebaseBackend = {
     syncLocalEntriesToCloud,
     clearAllCloudEntries,
     saveCloudSettings,
-    fetchCloudSettings
+    fetchCloudSettings,
+    sendPasswordReset
 };

@@ -51,9 +51,12 @@
                     <label for="login-email">E-mail</label>
                     <input type="email" id="login-email" placeholder="seuemail@exemplo.com">
                 </div>
-                <div class="input-group full-width" style="margin-bottom: 1rem;">
+                <div class="input-group full-width" style="margin-bottom: 0.5rem;">
                     <label for="login-password">Senha</label>
                     <input type="password" id="login-password" placeholder="Sua senha">
+                </div>
+                <div style="text-align: right; margin-bottom: 1rem;">
+                    <button id="forgot-password-btn" type="button" class="btn-text" style="font-size: 0.8rem; color: var(--accent-blue);">Esqueci minha senha</button>
                 </div>
                 <button id="login-enter-btn" class="btn-primary" style="width: 100%; margin-bottom: 0.5rem;">
                     <i class="fa-solid fa-right-to-bracket"></i> Entrar
@@ -145,6 +148,7 @@
                     <div class="kpi-info">
                         <h3>Km Rodados</h3>
                         <p id="kpi-total-km">0.0 km</p>
+                        <small id="kpi-odometer-text" style="color: var(--text-muted); font-size: 0.78rem; display: block; margin-top: 0.15rem;">Painel: -</small>
                         <span id="kpi-earning-per-km" class="trend success">R$ 0,00 / km</span>
                     </div>
                 </div>
@@ -221,11 +225,19 @@
 
                             <div class="form-row">
                                 <div class="input-group">
-                                    <label for="km-traveled">Odômetro Atual da Moto (km)</label>
-                                    <input type="number" id="km-traveled" min="0" step="0.1" placeholder="Ex: 57110">
-                                    <small style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem; display: block;">Digite a marcação atual do painel da moto (ex: 57110)</small>
+                                    <label for="km-traveled">Odômetro do Painel (km)</label>
+                                    <input type="number" id="km-traveled" min="0" step="0.1" placeholder="Ex: 57180">
+                                    <small id="km-helper-text" style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem; display: block;">Digite o odômetro atual da moto</small>
                                 </div>
                                 <div class="input-group">
+                                    <label for="km-day-driven">Km Rodados no Dia (km)</label>
+                                    <input type="number" id="km-day-driven" min="0" step="0.1" placeholder="Ex: 70.0">
+                                    <small style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem; display: block;">Calculado automático ou digite</small>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="input-group full-width">
                                     <label for="hours-worked">Horas Online (h)</label>
                                     <input type="number" id="hours-worked" min="0" step="0.1" placeholder="0.0">
                                 </div>

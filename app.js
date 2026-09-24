@@ -17,6 +17,8 @@ const elements = {
     ridesInput: document.getElementById("earnings-rides"),
     tipsInput: document.getElementById("earnings-tips"),
     kmInput: document.getElementById("km-traveled"),
+    kmDayDrivenInput: document.getElementById("km-day-driven"),
+    kmHelperText: document.getElementById("km-helper-text"),
     hoursInput: document.getElementById("hours-worked"),
     fuelInput: document.getElementById("expense-fuel"),
     foodInput: document.getElementById("expense-food"),
@@ -31,6 +33,7 @@ const elements = {
     kpiTotalExpenses: document.getElementById("kpi-total-expenses"),
     kpiExpensePct: document.getElementById("kpi-expense-pct"),
     kpiTotalKm: document.getElementById("kpi-total-km"),
+    kpiOdometerText: document.getElementById("kpi-odometer-text"),
     kpiEarningPerKm: document.getElementById("kpi-earning-per-km"),
     
     // Widgets
@@ -80,7 +83,8 @@ const elements = {
     authBtn: document.getElementById("auth-btn"),
     userBadge: document.getElementById("user-badge"),
     userEmailText: document.getElementById("user-email-text"),
-    logoutBtn: document.getElementById("logout-btn")
+    logoutBtn: document.getElementById("logout-btn"),
+    forgotPasswordBtn: document.getElementById("forgot-password-btn")
 };
 
 // Variável para instância do Gráfico
@@ -132,13 +136,17 @@ function setupLoginScreen() {
     const loginEmail = document.getElementById("login-email");
     const loginPassword = document.getElementById("login-password");
 
+    const forgotPasswordBtn = document.getElementById("forgot-password-btn");
+
     if (loginGoogleBtn) {
+        let isGoogleLoggingIn = false;
         loginGoogleBtn.addEventListener("click", () => {
-            loginGoogleBtn.innerText = "Conectando ao Google...";
-            loginGoogleBtn.disabled = true;
+            if (isGoogleLoggingIn) return;
+            isGoogleLoggingIn = true;
+            loginGoogleBtn.innerHTML = '<i class="fa-brands fa-google"></i> Conectando...';
             showLoginError("");
 
-            // Executa imediatamente mantendo o contexto de clique do usuário no iOS Safari
+            // Executa mantendo o contexto de clique do usuário no iOS Safari
             window.FirebaseBackend.signInWithGoogle()
                 .then(async (user) => {
                     if (user) {
@@ -151,8 +159,31 @@ function setupLoginScreen() {
                 })
                 .finally(() => {
                     loginGoogleBtn.innerHTML = '<i class="fa-brands fa-google"></i> Entrar com o Google';
-                    loginGoogleBtn.disabled = false;
+                    isGoogleLoggingIn = false;
                 });
+        });
+    }
+
+    if (forgotPasswordBtn) {
+        forgotPasswordBtn.addEventListener("click", async () => {
+            const email = loginEmail.value.trim();
+            if (!email) {
+                showLoginError("Digite seu e-mail no campo acima e depois clique em 'Esqueci minha senha'.");
+                loginEmail.focus();
+                return;
+            }
+            try {
+                forgotPasswordBtn.innerText = "Enviando e-mail...";
+                forgotPasswordBtn.disabled = true;
+                await window.FirebaseBackend.sendPasswordReset(email);
+                alert("✅ Link de redefinição enviado para " + email + "!\nVerifique sua caixa de entrada e pasta de spam para criar sua senha.");
+                showLoginError("");
+            } catch (err) {
+                showLoginError("Não foi possível enviar o e-mail: " + (err.message || err));
+            } finally {
+                forgotPasswordBtn.innerText = "Esqueci minha senha";
+                forgotPasswordBtn.disabled = false;
+            }
         });
     }
 
@@ -273,6 +304,68 @@ async function enterApp() {
     await loadDataFromCloud();
     setDefaultDate();
     initTheme();
+    syncKmFieldsFromOdometer();
+}
+
+// Retorna o último odômetro conhecido anterior a uma determinada data
+function getPreviousKnownOdometer(forDate) {
+    const selectedDate = forDate || (elements.dateInput ? elements.dateInput.value : '');
+    const previousEntries = appData.entries
+        .filter(entry => !selectedDate || entry.date < selectedDate)
+        .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    for (const entry of previousEntries) {
+        const val = parseFloat(entry.odometer) || 0;
+        if (val > 0) return val;
+    }
+    return parseFloat(appData.settings.lastOilChangeKm) || 0;
+}
+
+// Sincroniza os campos do odômetro e km rodados no dia quando o usuário digita o odômetro
+function syncKmFieldsFromOdometer() {
+    if (!elements.kmInput) return;
+    const val = parseFloat(elements.kmInput.value) || 0;
+    const prevOdo = getPreviousKnownOdometer(elements.dateInput ? elements.dateInput.value : '');
+    
+    if (val > 0) {
+        if (prevOdo > 0 && val >= prevOdo) {
+            const diff = (val - prevOdo).toFixed(1);
+            if (elements.kmDayDrivenInput) {
+                elements.kmDayDrivenInput.value = parseFloat(diff);
+            }
+            if (elements.kmHelperText) {
+                elements.kmHelperText.innerText = `Último painel: ${prevOdo.toLocaleString('pt-BR')} km (+${diff} km rodados)`;
+            }
+        } else if (prevOdo > 0 && val < prevOdo) {
+            if (elements.kmHelperText) {
+                elements.kmHelperText.innerText = `Atenção: valor menor que o último painel registrado (${prevOdo.toLocaleString('pt-BR')} km)`;
+            }
+        } else {
+            if (elements.kmHelperText) {
+                elements.kmHelperText.innerText = `Painel registrado: ${val.toLocaleString('pt-BR')} km`;
+            }
+        }
+    } else {
+        if (elements.kmHelperText) {
+            elements.kmHelperText.innerText = prevOdo > 0 
+                ? `Último painel registrado: ${prevOdo.toLocaleString('pt-BR')} km` 
+                : 'Digite o odômetro atual da moto';
+        }
+    }
+}
+
+// Sincroniza o odômetro quando o usuário digita diretamente os km rodados no dia
+function syncKmFieldsFromDayDriven() {
+    if (!elements.kmDayDrivenInput) return;
+    const dayKm = parseFloat(elements.kmDayDrivenInput.value) || 0;
+    const prevOdo = getPreviousKnownOdometer(elements.dateInput ? elements.dateInput.value : '');
+
+    if (dayKm > 0 && prevOdo > 0 && (!elements.kmInput.value || parseFloat(elements.kmInput.value) <= prevOdo)) {
+        elements.kmInput.value = (prevOdo + dayKm).toFixed(1);
+        if (elements.kmHelperText) {
+            elements.kmHelperText.innerText = `Painel estimado: ${(prevOdo + dayKm).toLocaleString('pt-BR')} km`;
+        }
+    }
 }
 
 // Carrega dados do Firebase (Firestore) e sincroniza configurações
@@ -349,6 +442,15 @@ function setupEventListeners() {
         e.preventDefault();
         saveEntry();
     });
+
+    // Sincronização em tempo real entre Odômetro do Painel e Km Rodados no Dia
+    if (elements.kmInput && elements.kmDayDrivenInput) {
+        elements.kmInput.addEventListener("input", syncKmFieldsFromOdometer);
+        elements.kmDayDrivenInput.addEventListener("input", syncKmFieldsFromDayDriven);
+        if (elements.dateInput) {
+            elements.dateInput.addEventListener("change", syncKmFieldsFromOdometer);
+        }
+    }
 
     // Filtro de Histórico
     elements.filterPeriod.addEventListener("change", updateUI);
@@ -620,7 +722,8 @@ function saveEntry() {
     const date = elements.dateInput.value;
     const rides = parseFloat(elements.ridesInput.value) || 0;
     const tips = parseFloat(elements.tipsInput.value) || 0;
-    const rawKmInput = parseFloat(elements.kmInput.value) || 0;
+    const rawOdometer = parseFloat(elements.kmInput.value) || 0;
+    const rawDayKm = parseFloat(elements.kmDayDrivenInput ? elements.kmDayDrivenInput.value : 0) || 0;
     const hours = parseFloat(elements.hoursInput.value) || 0;
     const fuel = parseFloat(elements.fuelInput.value) || 0;
     const food = parseFloat(elements.foodInput.value) || 0;
@@ -628,32 +731,29 @@ function saveEntry() {
     const notes = elements.notesInput.value.trim();
 
     // Validação mínima
-    if (rides === 0 && tips === 0 && fuel === 0 && food === 0 && others === 0 && rawKmInput === 0) {
-        alert("Por favor, preencha pelo menos um valor de ganho, gasto ou odômetro.");
+    if (rides === 0 && tips === 0 && fuel === 0 && food === 0 && others === 0 && rawOdometer === 0 && rawDayKm === 0) {
+        alert("Por favor, preencha pelo menos um valor de ganho, gasto ou quilometragem.");
         return;
     }
 
     // Calcula Odômetro x Km rodados no dia
-    // Busca o maior odômetro de registros anteriores a esta data
-    const previousEntries = appData.entries
-        .filter(entry => entry.date < date)
-        .sort((a, b) => new Date(b.date) - new Date(a.date));
-
-    const prevOdometer = previousEntries.length > 0 && previousEntries[0].odometer 
-        ? previousEntries[0].odometer 
-        : (previousEntries.length > 0 ? (previousEntries[0].km || 0) : (parseFloat(appData.settings.lastOilChangeKm) || 0));
+    const prevOdometer = getPreviousKnownOdometer(date);
 
     let odometer = 0;
     let kmDriven = 0;
 
-    if (rawKmInput >= 2000 || (prevOdometer > 0 && rawKmInput > prevOdometer)) {
-        // Usuário digitou o odômetro total do painel (ex: 57180)
-        odometer = rawKmInput;
-        kmDriven = prevOdometer > 0 && rawKmInput > prevOdometer ? (rawKmInput - prevOdometer) : 0;
-    } else {
-        // Usuário digitou os km rodados no dia (ex: 110)
-        kmDriven = rawKmInput;
-        odometer = prevOdometer > 0 ? (prevOdometer + rawKmInput) : rawKmInput;
+    if (rawDayKm > 0) {
+        kmDriven = rawDayKm;
+        odometer = rawOdometer > 0 ? rawOdometer : (prevOdometer > 0 ? (prevOdometer + rawDayKm) : 0);
+    } else if (rawOdometer > 0) {
+        odometer = rawOdometer;
+        if (prevOdometer > 0 && rawOdometer > prevOdometer) {
+            kmDriven = rawOdometer - prevOdometer;
+        } else if (rawOdometer < 500 && prevOdometer === 0) {
+            kmDriven = rawOdometer;
+        } else {
+            kmDriven = 0;
+        }
     }
 
     const newEntry = {
@@ -710,6 +810,7 @@ function saveEntry() {
     // Reseta o formulário mantendo a data padrão
     elements.form.reset();
     setDefaultDate();
+    syncKmFieldsFromOdometer();
 }
 
 // Deleta um lançamento
@@ -756,6 +857,23 @@ function updateUI() {
     elements.kpiGrossRevenue.innerText = formatCurrency(totalRevenue);
     elements.kpiTotalExpenses.innerText = formatCurrency(totalExpenses);
     elements.kpiTotalKm.innerText = `${totalKm.toFixed(1)} km`;
+
+    // Odômetro atual do painel da moto
+    let maxEntryOdometer = 0;
+    appData.entries.forEach(entry => {
+        const val = parseFloat(entry.odometer) || 0;
+        if (val > maxEntryOdometer) {
+            maxEntryOdometer = val;
+        }
+    });
+    const lastOilKm = parseFloat(appData.settings.lastOilChangeKm) || 0;
+    const currentOdometer = Math.max(maxEntryOdometer, lastOilKm);
+
+    if (elements.kpiOdometerText) {
+        elements.kpiOdometerText.innerText = currentOdometer > 0 
+            ? `Painel: ${currentOdometer.toLocaleString('pt-BR')} km` 
+            : 'Painel: -';
+    }
 
     // Atualização dos textos de ajuda das KPIs
     const profitPct = totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(0) : 0;
