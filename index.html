@@ -299,12 +299,15 @@
                 <div class="card">
                     <div class="history-header">
                         <h2><i class="fa-solid fa-list-check"></i> Histórico de Trabalho</h2>
-                        <div class="history-filters">
+                        <div class="history-filters" style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
                             <select id="filter-period">
                                 <option value="all">Todo o histórico</option>
                                 <option value="7">Últimos 7 dias</option>
                                 <option value="30">Últimos 30 dias</option>
                             </select>
+                            <button id="reset-km-direct-btn" class="btn-secondary" style="border-color: var(--accent-yellow); color: var(--accent-yellow);" title="Zerar apenas odômetros e km de todos os lançamentos">
+                                <i class="fa-solid fa-gauge-simple"></i> Zerar Km
+                            </button>
                             <button id="clear-data-btn" class="btn-danger" title="Apagar todos os dados">
                                 <i class="fa-solid fa-trash-can"></i> Limpar Tudo
                             </button>

@@ -459,46 +459,89 @@ function setupEventListeners() {
 
     // Botão Limpar Tudo (Apaga no banco em nuvem e localmente)
     elements.clearDataBtn.addEventListener("click", async () => {
-        if (confirm("Tem certeza que deseja apagar TODOS os seus lançamentos permanentemente da sua conta? Esta ação não pode ser desfeita.")) {
-            appData.entries = [];
-            saveData();
-            updateUI();
-            if (window.FirebaseBackend) {
-                try {
-                    await window.FirebaseBackend.clearAllCloudEntries();
-                } catch (e) {
-                    console.error("Erro ao apagar histórico da nuvem:", e);
-                }
-            }
-            alert("🗑️ Todo o seu histórico foi apagado permanentemente da sua conta!");
+        if (!confirm("⚠️ Tem certeza que deseja apagar TODOS os seus lançamentos e zerar o painel da moto na sua conta? Esta ação não pode ser desfeita.")) {
+            return;
         }
+
+        elements.clearDataBtn.innerText = "Apagando tudo...";
+        elements.clearDataBtn.disabled = true;
+
+        appData.entries = [];
+        appData.settings.lastOilChangeKm = 0;
+        appData.settings.lastOilChangeDate = '';
+        saveData();
+        updateUI();
+
+        if (window.FirebaseBackend) {
+            try {
+                await window.FirebaseBackend.clearAllCloudEntries();
+                if (window.FirebaseBackend.saveCloudSettings) {
+                    await window.FirebaseBackend.saveCloudSettings(appData.settings);
+                }
+            } catch (e) {
+                console.error("Erro ao apagar histórico da nuvem:", e);
+            }
+        }
+
+        elements.clearDataBtn.innerHTML = '<i class="fa-solid fa-trash-can"></i> Limpar Tudo';
+        elements.clearDataBtn.disabled = false;
+        alert("🗑️ Todo o seu histórico e odômetros foram apagados permanentemente da sua conta!");
     });
 
-    // Reset / Registro da Troca de Óleo
-    elements.resetOilBtn.addEventListener("click", () => {
-        let maxOdometer = 0;
-        appData.entries.forEach(entry => {
-            const val = parseFloat(entry.odometer) || 0;
-            if (val > maxOdometer) maxOdometer = val;
-        });
-
-        const currentKnownKm = maxOdometer > 0 ? maxOdometer : (parseFloat(appData.settings.lastOilChangeKm) || 0);
-        const promptVal = prompt(
-            "Registrar troca de óleo!\nDigite a quilometragem marcada no painel da moto no momento da troca:",
-            currentKnownKm > 0 ? currentKnownKm : ""
-        );
-
-        if (promptVal !== null && promptVal !== "") {
-            const kmVal = parseFloat(String(promptVal).replace(',', '.')) || currentKnownKm;
-            appData.settings.lastOilChangeKm = kmVal;
-            appData.settings.lastOilChangeDate = getLocalDateString();
-            saveData();
-            if (window.FirebaseBackend && window.FirebaseBackend.saveCloudSettings) {
-                window.FirebaseBackend.saveCloudSettings(appData.settings);
+    // Botão direto no Histórico: Zerar Km (Zera apenas quilometragens mantendo ganhos e gastos)
+    const resetKmDirectBtn = document.getElementById("reset-km-direct-btn");
+    if (resetKmDirectBtn) {
+        resetKmDirectBtn.addEventListener("click", async () => {
+            if (!confirm("Deseja zerar os odômetros e km rodados de todos os seus lançamentos no banco de dados?\n\n(Seus ganhos, corridas, gorjetas e despesas continuarão 100% salvos e intactos!)")) {
+                return;
             }
+
+            resetKmDirectBtn.innerText = "Zerando km...";
+            resetKmDirectBtn.disabled = true;
+
+            // Zera km e odometer em todos os lançamentos
+            appData.entries.forEach(entry => {
+                entry.km = 0;
+                entry.odometer = 0;
+            });
+
+            // Zera o odômetro da moto nas configurações
+            appData.settings.lastOilChangeKm = 0;
+            appData.settings.lastOilChangeDate = '';
+
+            saveData();
             updateUI();
-            const nextChange = kmVal + (appData.settings.oilChangeInterval || 1000);
-            alert(`✅ Troca de óleo registrada no odômetro ${kmVal.toLocaleString('pt-BR')} km!\nO próximo alerta de troca será ativado em ${nextChange.toLocaleString('pt-BR')} km.`);
+
+            try {
+                if (window.FirebaseBackend) {
+                    if (window.FirebaseBackend.syncLocalEntriesToCloud) {
+                        await window.FirebaseBackend.syncLocalEntriesToCloud(appData.entries);
+                    }
+                    if (window.FirebaseBackend.saveCloudSettings) {
+                        await window.FirebaseBackend.saveCloudSettings(appData.settings);
+                    }
+                }
+                alert("✅ Todos os odômetros e km foram zerados com sucesso no banco de dados!\nSeus valores de faturamento e despesas foram 100% mantidos.");
+            } catch (err) {
+                console.error("Erro na sincronização:", err);
+                alert("Aviso: Dados zerados localmente. Erro na nuvem: " + (err.message || err));
+            } finally {
+                resetKmDirectBtn.innerHTML = '<i class="fa-solid fa-gauge-simple"></i> Zerar Km';
+                resetKmDirectBtn.disabled = false;
+            }
+        });
+    }
+
+    // Reset / Registro da Troca de Óleo - Abre o modal de configurações
+    elements.resetOilBtn.addEventListener("click", () => {
+        elements.configGoalInput.value = appData.settings.dailyGoal;
+        elements.configOilInput.value = appData.settings.oilChangeInterval;
+        if (elements.configOilLastKmInput) {
+            elements.configOilLastKmInput.value = appData.settings.lastOilChangeKm || '';
+        }
+        elements.goalModal.classList.add("show");
+        if (elements.configOilLastKmInput) {
+            elements.configOilLastKmInput.focus();
         }
     });
 
@@ -534,17 +577,10 @@ function setupEventListeners() {
     // Botão para zerar km e odômetro dos lançamentos mantendo dados financeiros
     if (elements.resetAllKmBtn) {
         elements.resetAllKmBtn.addEventListener("click", async () => {
-            if (!confirm("⚠️ Atenção: Deseja zerar os odômetros e km de todos os seus lançamentos anteriores no banco de dados?\n\n(Todos os seus ganhos, corridas, gorjetas e despesas continuarão 100% salvos e intactos!)")) {
-                return;
-            }
+            const initialKm = elements.configOilLastKmInput ? (parseFloat(elements.configOilLastKmInput.value) || 0) : 0;
 
-            const initialKmPrompt = prompt(
-                "Digite a quilometragem atual do painel da moto (ou odômetro da última troca de óleo):\n(Se quiser deixar tudo zerado para começar do zero, deixe 0)", 
-                "0"
-            );
-            if (initialKmPrompt === null) return;
-
-            const initialKm = parseFloat(String(initialKmPrompt).replace(',', '.')) || 0;
+            elements.resetAllKmBtn.innerText = "Zerando km...";
+            elements.resetAllKmBtn.disabled = true;
 
             // Zera km e odometer em todos os lançamentos
             appData.entries.forEach(entry => {
@@ -556,13 +592,12 @@ function setupEventListeners() {
             appData.settings.lastOilChangeKm = initialKm;
             if (initialKm > 0) {
                 appData.settings.lastOilChangeDate = getLocalDateString();
+            } else {
+                appData.settings.lastOilChangeDate = '';
             }
 
             saveData();
             updateUI();
-
-            elements.resetAllKmBtn.innerText = "Sincronizando no banco...";
-            elements.resetAllKmBtn.disabled = true;
 
             try {
                 if (window.FirebaseBackend) {
@@ -573,9 +608,10 @@ function setupEventListeners() {
                         await window.FirebaseBackend.saveCloudSettings(appData.settings);
                     }
                 }
-                alert(`✅ Quilometragem zerada com sucesso no banco de dados!\n${initialKm > 0 ? `Odômetro da moto definido em ${initialKm.toLocaleString('pt-BR')} km.` : 'Odômetro zerado.'}\nTodos os seus valores financeiros foram mantidos.`);
+                alert(`✅ Quilometragem zerada com sucesso no banco de dados!\n${initialKm > 0 ? `Odômetro da moto configurado para ${initialKm.toLocaleString('pt-BR')} km.` : 'Odômetros e Km zerados.'}\nTodos os seus valores de faturamento e despesas foram mantidos.`);
             } catch (err) {
-                alert("Aviso: Dados atualizados localmente, mas ocorreu um erro na sincronização em nuvem: " + err.message);
+                console.error("Erro na sincronização em nuvem:", err);
+                alert("Aviso: Dados atualizados localmente. Erro na nuvem: " + (err.message || err));
             } finally {
                 elements.resetAllKmBtn.innerHTML = '<i class="fa-solid fa-gauge-simple"></i> Zerar Km/Odômetro dos Lançamentos';
                 elements.resetAllKmBtn.disabled = false;
