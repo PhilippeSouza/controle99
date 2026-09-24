@@ -1,4 +1,4 @@
-const CACHE_NAME = 'controle99-cache-v12';
+const CACHE_NAME = 'controle99-cache-v13';
 const assets = [
   './',
   './index.html',

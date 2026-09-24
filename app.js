@@ -58,6 +58,8 @@ const elements = {
     goalModal: document.getElementById("goal-modal"),
     configGoalInput: document.getElementById("config-goal-input"),
     configOilInput: document.getElementById("config-oil-input"),
+    configOilLastKmInput: document.getElementById("config-oil-last-km"),
+    resetAllKmBtn: document.getElementById("reset-all-km-btn"),
     saveConfigBtn: document.getElementById("save-config-btn"),
     closeModalBtn: document.getElementById("close-modal-btn"),
     
@@ -504,6 +506,9 @@ function setupEventListeners() {
     elements.editGoalBtn.addEventListener("click", () => {
         elements.configGoalInput.value = appData.settings.dailyGoal;
         elements.configOilInput.value = appData.settings.oilChangeInterval;
+        if (elements.configOilLastKmInput) {
+            elements.configOilLastKmInput.value = appData.settings.lastOilChangeKm || 0;
+        }
         elements.goalModal.classList.add("show");
     });
 
@@ -514,8 +519,10 @@ function setupEventListeners() {
     elements.saveConfigBtn.addEventListener("click", () => {
         const goal = parseFloat(elements.configGoalInput.value) || 150;
         const oil = parseInt(elements.configOilInput.value) || 1000;
+        const oilLastKm = elements.configOilLastKmInput ? (parseFloat(elements.configOilLastKmInput.value) || 0) : appData.settings.lastOilChangeKm;
         appData.settings.dailyGoal = goal;
         appData.settings.oilChangeInterval = oil;
+        appData.settings.lastOilChangeKm = oilLastKm;
         saveData();
         if (window.FirebaseBackend && window.FirebaseBackend.saveCloudSettings) {
             window.FirebaseBackend.saveCloudSettings(appData.settings);
@@ -523,6 +530,59 @@ function setupEventListeners() {
         elements.goalModal.classList.remove("show");
         updateUI();
     });
+
+    // Botão para zerar km e odômetro dos lançamentos mantendo dados financeiros
+    if (elements.resetAllKmBtn) {
+        elements.resetAllKmBtn.addEventListener("click", async () => {
+            if (!confirm("⚠️ Atenção: Deseja zerar os odômetros e km de todos os seus lançamentos anteriores no banco de dados?\n\n(Todos os seus ganhos, corridas, gorjetas e despesas continuarão 100% salvos e intactos!)")) {
+                return;
+            }
+
+            const initialKmPrompt = prompt(
+                "Digite a quilometragem atual do painel da moto (ou odômetro da última troca de óleo):\n(Se quiser deixar tudo zerado para começar do zero, deixe 0)", 
+                "0"
+            );
+            if (initialKmPrompt === null) return;
+
+            const initialKm = parseFloat(String(initialKmPrompt).replace(',', '.')) || 0;
+
+            // Zera km e odometer em todos os lançamentos
+            appData.entries.forEach(entry => {
+                entry.km = 0;
+                entry.odometer = 0;
+            });
+
+            // Atualiza configurações da moto / troca de óleo
+            appData.settings.lastOilChangeKm = initialKm;
+            if (initialKm > 0) {
+                appData.settings.lastOilChangeDate = getLocalDateString();
+            }
+
+            saveData();
+            updateUI();
+
+            elements.resetAllKmBtn.innerText = "Sincronizando no banco...";
+            elements.resetAllKmBtn.disabled = true;
+
+            try {
+                if (window.FirebaseBackend) {
+                    if (window.FirebaseBackend.syncLocalEntriesToCloud) {
+                        await window.FirebaseBackend.syncLocalEntriesToCloud(appData.entries);
+                    }
+                    if (window.FirebaseBackend.saveCloudSettings) {
+                        await window.FirebaseBackend.saveCloudSettings(appData.settings);
+                    }
+                }
+                alert(`✅ Quilometragem zerada com sucesso no banco de dados!\n${initialKm > 0 ? `Odômetro da moto definido em ${initialKm.toLocaleString('pt-BR')} km.` : 'Odômetro zerado.'}\nTodos os seus valores financeiros foram mantidos.`);
+            } catch (err) {
+                alert("Aviso: Dados atualizados localmente, mas ocorreu um erro na sincronização em nuvem: " + err.message);
+            } finally {
+                elements.resetAllKmBtn.innerHTML = '<i class="fa-solid fa-gauge-simple"></i> Zerar Km/Odômetro dos Lançamentos';
+                elements.resetAllKmBtn.disabled = false;
+                elements.goalModal.classList.remove("show");
+            }
+        });
+    }
 
     // Alternador de Tema
     elements.themeToggle.addEventListener("click", () => {
@@ -1035,6 +1095,9 @@ function renderHistoryTable(entriesList) {
             </td>
             <td><span class="status-badge" style="background-color: var(--bg-card); border: 1px solid var(--border-color);">${efficiency}</span></td>
             <td class="actions-cell">
+                <button class="btn-table-icon" onclick="editEntry('${entry.id}')" title="Editar Lançamento">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                </button>
                 <button class="btn-table-icon" onclick="showDetailsEntry('${entry.id}')" title="Ver Detalhes do Dia">
                     <i class="fa-solid fa-circle-info"></i>
                 </button>
@@ -1046,6 +1109,33 @@ function renderHistoryTable(entriesList) {
         elements.historyList.appendChild(row);
     });
 }
+
+// Carrega os dados de um lançamento existente no formulário para edição
+function editEntry(id) {
+    const entry = appData.entries.find(e => e.id === id);
+    if (!entry) return;
+
+    elements.dateInput.value = entry.date;
+    elements.ridesInput.value = entry.rides > 0 ? entry.rides : '';
+    elements.tipsInput.value = entry.tips > 0 ? entry.tips : '';
+    elements.kmInput.value = entry.odometer > 0 ? entry.odometer : '';
+    if (elements.kmDayDrivenInput) {
+        elements.kmDayDrivenInput.value = entry.km > 0 ? entry.km : '';
+    }
+    elements.hoursInput.value = entry.hours > 0 ? entry.hours : '';
+    elements.fuelInput.value = entry.fuel > 0 ? entry.fuel : '';
+    elements.foodInput.value = entry.food > 0 ? entry.food : '';
+    elements.othersInput.value = entry.others > 0 ? entry.others : '';
+    elements.notesInput.value = entry.notes || '';
+
+    syncKmFieldsFromOdometer();
+
+    if (elements.form) {
+        elements.form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    elements.ridesInput.focus();
+}
+window.editEntry = editEntry;
 
 // Exibe modal ou alerta com o detalhamento completo do dia selecionado
 function showDetailsEntry(id) {
